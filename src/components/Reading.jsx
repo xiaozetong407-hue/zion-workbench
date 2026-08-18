@@ -70,6 +70,8 @@ export default function Reading() {
   const [wereadErr, setWereadErr] = useState('')
   const [wereadHint, setWereadHint] = useState('')
   const wereadDebounce = useRef(null)
+  // 防重复：一次只允许一个同步在跑（打开页面自动连接 + 输入防抖 + 手动重试互斥）
+  const wereadSyncing = useRef(false)
   // 微信读书 key 校验前缀（大小写不敏感：支持 wrk- 与 WRK-）
   const WRK_PREFIX = 'wrk'
   const [tab, setTab] = useState('shelf') // 'shelf' | 'review'
@@ -97,8 +99,14 @@ export default function Reading() {
 
   async function syncWeread(keyArg) {
     const key = (keyArg !== undefined ? keyArg : (wereadKeyRef.current || (typeof localStorage !== 'undefined' ? localStorage.getItem('zion-weread-key') : '') || '')).trim()
-    if (!key) { setWereadErr('请先粘贴微信读书 API Key（wrk- 开头）'); return }
+    if (!key) { setWereadErr('尚未配置微信读书 Key（wrk- 开头）'); return }
+    // 一次只允许一个同步在跑；已在进行则忽略本次触发（防 useEffect/防抖/手动重试重复）
+    if (wereadSyncing.current) return
+    wereadSyncing.current = true
     setWereadLoading(true); setWereadErr('')
+    // 总超时：整个同步最多 30 秒，超时 abort 全部请求，绝不无限“正在自动连接”
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 30000)
     try {
       // 微信读书代理：默认走 Cloudflare Worker（zezionx 账号已部署 weread-proxy-worker.js）；
       // 用户可在「我 → 微信读书代理（高级）」覆盖为自有地址（留空即用默认）。
@@ -112,10 +120,14 @@ export default function Reading() {
         let resp
         try {
           resp = await fetch(wereadUrl, {
-            method: 'POST', headers: auth,
+            method: 'POST', headers: auth, signal: ctrl.signal,
             body: JSON.stringify(Object.assign({ api_name, skill_version: '1.0.5' }, extra)),
           })
         } catch (netErr) {
+          if (ctrl.signal.aborted) {
+            const e = new Error('同步超时（30 秒）：代理未在限定时间内响应，请检查网络后重试')
+            e.layer = 'timeout'; throw e
+          }
           const e = new Error(`网络层失败：${netErr.message}（目标 ${wereadUrl}；多为代理不可达/未配置/CORS 拦截）`)
           e.layer = 'network'; throw e
         }
@@ -135,6 +147,11 @@ export default function Reading() {
       }
 
       const shelf = await post('/shelf/sync')
+      // 格式校验：200 但结构不符合预期 → 明确报“数据格式异常”，而不是当空数据成功
+      if (!shelf || typeof shelf !== 'object' || !Array.isArray(shelf.books)) {
+        const e = new Error('微信读书返回数据格式异常（/shelf/sync 未返回 books 数组），请重试')
+        e.layer = 'format'; throw e
+      }
       const all = shelf.books || []
       const pinned = all.filter((b) => b.isTop === true)
 
@@ -223,21 +240,28 @@ export default function Reading() {
       setWereadHint('')
       localStorage.setItem('zion-weread-key', key)
     } catch (e) {
-      // 1.0.0：不再静默——按失败层输出真实链路（auth=Key 无效 / proxy=代理层 / network=不可达 / 其他）
+      // 1.0.0：不再静默——按失败层输出真实链路（timeout/auth/proxy/network/format/其他）
       const layer = e.layer || 'unknown'
       if (db.getWereadBooks().length === 0) {
         setWereadConnected(false)
       }
       const tip =
-        layer === 'auth'
+        layer === 'timeout'
+          ? '（请检查手机网络与代理可达性后，点「重新同步」重试）'
+          : layer === 'auth'
           ? '（WRK-Key 无效或已过期：请确认复制完整 wrk- 开头 Key）'
           : layer === 'proxy'
           ? '（代理服务器返回 5xx：请检查代理是否可用）'
           : layer === 'network'
           ? '（网络层：代理不可达/未配置/CORS 拦截）'
+          : layer === 'format'
+          ? '（响应结构异常，可点「重新同步」重试）'
           : '（同步链路异常）'
       setWereadErr(`${e.message}${tip}`)
     } finally {
+      // 无论成功/失败/超时/解析异常/格式异常，同步状态必须复位，绝不无限“正在自动连接”
+      clearTimeout(timer)
+      wereadSyncing.current = false
       setWereadLoading(false)
     }
   }
@@ -311,16 +335,16 @@ export default function Reading() {
                 setWereadKey(v)
                 // 立即持久化 Key（即使后续同步失败，Key 也不丢失，下次打开仍连着）
                 try { localStorage.setItem('zion-weread-key', v) } catch (e2) {}
-                // 输入即自动连接（防抖），无需手动点按钮；前缀大小写不敏感
+                // 输入即自动连接（防抖），无需手动点按钮；前缀大小写不敏感；
+                // loading 统一由 syncWeread 管理（内部有防重复与 30s 超时）
                 if (v && v.trim().toLowerCase().startsWith(WRK_PREFIX)) {
-                  setWereadLoading(true)
                   if (wereadDebounce.current) clearTimeout(wereadDebounce.current)
                   wereadDebounce.current = setTimeout(() => syncWeread(wereadKeyRef.current), 700)
                 }
               }}
             />
             <div className="weread-status">
-              {wereadLoading ? '正在自动连接…' : (wereadKey ? '未连接到微信读书' : '粘贴 Key 后将自动连接')}
+              {wereadLoading ? '正在自动连接…' : (wereadKey ? '未连接到微信读书' : '尚未配置微信读书 Key（wrk- 开头）')}
             </div>
           </div>
         ) : (
