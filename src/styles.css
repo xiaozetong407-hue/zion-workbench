@@ -3323,3 +3323,57 @@ h2 { font-size: 16px; font-weight: 800; }
   white-space: nowrap;
 }
 .sh-table .sh-table__avg td:first-child { font-size: 12px; }
+
+/* ============ Zion 个人宣言（1.0.0，仅首页）============ */
+/* 极简 / 克制 / 留白 / 长期主义感；桌面限宽，移动端自然换行 */
+.manifesto {
+  max-width: 560px;
+  margin: 4px auto 10px;
+  padding: 26px 6px 10px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+.manifesto__head {
+  margin: 0 0 28px;
+  font-size: 21px;
+  font-weight: 800;
+  line-height: 1.65;
+  letter-spacing: .5px;
+  color: var(--ink);
+}
+.manifesto__body {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.manifesto__line {
+  margin: 0;
+  padding: 0;
+  font-size: 14.5px;
+  font-weight: 500;
+  line-height: 1.95;
+  letter-spacing: .3px;
+  color: #3a4152;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+/* 细分隔线：段前小节线，形成「宣言条目」感而非编号列表 */
+.manifesto__line::before {
+  content: '';
+  display: block;
+  width: 24px;
+  height: 2px;
+  background: var(--line);
+  margin-bottom: 12px;
+}
+/* 少量关键词强调（加重加色，不整句加粗） */
+.mf-em {
+  font-style: normal;
+  font-weight: 700;
+  color: var(--ink);
+}
+@media (min-width: 640px) {
+  .manifesto__head { font-size: 24px; }
+  .manifesto__line { font-size: 15px; }
+}

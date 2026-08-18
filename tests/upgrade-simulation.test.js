@@ -88,7 +88,7 @@ test('老用户升级：启动 -> 使用 -> 导出 -> 导入 -> 关键业务数�
   // ③ 导出
   const exp = JSON.parse(db.exportData())
   assert.equal(exp.schemaVersion, 1)
-  assert.equal(exp.appVersion, '0.32.1')
+  assert.equal(exp.appVersion, '1.0.0')
 
   // ④ 清空环境后导入
   localStorage.clear()

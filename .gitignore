@@ -20,3 +20,6 @@ zion-backup-*.json
 workbuddy-backup-*.json
 backup-*.json
 *.backup.json
+
+# 调试日志
+debug.log

@@ -184,6 +184,52 @@ function CheckInPanel({ onNav }) {
   )
 }
 
+// ---- Zion 个人宣言（1.0.0：Zion 栏核心内容，原文一字不改，仅做排版）----
+// 每段可含少量关键词强调（加粗加重，不整句加粗；文字内容不变）
+const MANIFESTO_TITLE = '活在未来，长期主义，量化成果，进步记录，不是简单重复！'
+const MANIFESTO_TITLE_EM = ['活在未来', '长期主义', '量化成果', '进步记录']
+const MANIFESTO_LINES = [
+  { text: '时间惩罚愚蠢时毫不留情。为了半年后的自己！！', em: ['半年后的自己'] },
+  { text: '这是我的战争，把自己从那些软件里抢回来！', em: ['这是我的战争'] },
+  { text: '现在浪费的时间日积月累，消耗的是未来5年，10年更好的生活，更好的发展', em: ['未来5年，10年'] },
+  { text: '我永远都不会丢掉我的心气，意气与勇气', em: ['心气', '意气', '勇气'] },
+  { text: '去他妈的幸存者偏差，永远不甘失败不服输，做出改变让自己更强大，眼见为实。', em: ['不甘失败', '不服输', '更强大', '眼见为实'] },
+]
+
+// 按关键词切分渲染（保持原文顺序与完整文本，仅包裹强调词）
+function ManifestoText({ text, em }) {
+  if (!em || em.length === 0) return text
+  let nodes = [text]
+  em.forEach((w, wi) => {
+    nodes = nodes.flatMap((n, ni) => {
+      if (typeof n !== 'string') return [n]
+      const parts = n.split(w)
+      if (parts.length === 1) return [n]
+      return parts.flatMap((p, pi) =>
+        pi === 0 ? [p] : [<em key={`${wi}-${ni}-${pi}`} className="mf-em">{w}</em>, p]
+      )
+    })
+  })
+  return nodes
+}
+
+function Manifesto() {
+  return (
+    <div className="card manifesto">
+      <h1 className="manifesto__head">
+        <ManifestoText text={MANIFESTO_TITLE} em={MANIFESTO_TITLE_EM} />
+      </h1>
+      <div className="manifesto__body">
+        {MANIFESTO_LINES.map((l, i) => (
+          <p key={i} className="manifesto__line">
+            <ManifestoText text={l.text} em={l.em} />
+          </p>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ---- 首页主组件 ----
 export default function Home({ onNav, date }) {
   const now = useNow(60000)
@@ -214,8 +260,8 @@ export default function Home({ onNav, date }) {
         <div className="hero-clock">{hh}:{mm}</div>
       </div>
 
-      {/* 人生倒计时（动态进度条） */}
-      <LifeRemaining />
+      {/* Zion 个人宣言（1.0.0 核心总纲；原文保留，极简宣言排版） */}
+      <Manifesto />
 
       {/* 今天最重要的事 */}
       <div className="card">
@@ -229,6 +275,9 @@ export default function Home({ onNav, date }) {
 
       {/* 打卡（并行网格） */}
       <CheckInPanel onNav={onNav} />
+
+      {/* 人生倒计时（动态进度条） */}
+      <LifeRemaining />
     </div>
   )
 }
