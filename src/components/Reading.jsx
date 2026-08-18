@@ -100,9 +100,10 @@ export default function Reading() {
     if (!key) { setWereadErr('请先粘贴微信读书 API Key（wrk- 开头）'); return }
     setWereadLoading(true); setWereadErr('')
     try {
-      // 微信读书代理地址可配置：留空用同源 /api/weread（需 server.js 提供）；
-      // 在「设置 → 微信读书代理」填自己的代理服务器地址，即可在纯静态部署下连接。
-      const raw = (db.getSettings().wereadProxyBase || '').trim().replace(/\/+$/, '')
+      // 微信读书代理：默认走 Cloudflare Worker（zezionx 账号已部署 weread-proxy-worker.js）；
+      // 用户可在「我 → 微信读书代理（高级）」覆盖为自有地址（留空即用默认）。
+      const DEFAULT_WEREAD_PROXY = 'https://zion-weread.zezionx.workers.dev'
+      const raw = (db.getSettings().wereadProxyBase || DEFAULT_WEREAD_PROXY).trim().replace(/\/+$/, '')
       const base = raw.replace(/\/api\/weread$/, '')
       const wereadUrl = base ? base + '/api/weread' : '/api/weread'
       const auth = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key }
