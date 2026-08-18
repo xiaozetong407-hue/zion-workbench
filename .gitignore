@@ -1,0 +1,22 @@
+node_modules
+dist
+.huawei-token.json
+.env
+zion-sync-store.json
+.env.example
+
+# vite 构建期临时文件
+vite.config.js.timestamp-*.mjs
+
+# 公开仓库不包含：项目记忆（含个人信息）与华为申请资料（含已填写表格）
+.workbuddy/
+huawei-form/
+
+# 凭证与数据备份（公开仓库绝不提交）
+*.token
+*.credentials
+.git-credentials
+zion-backup-*.json
+workbuddy-backup-*.json
+backup-*.json
+*.backup.json
