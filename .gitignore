@@ -23,3 +23,6 @@ backup-*.json
 
 # 调试日志
 debug.log
+
+# 临时构建目录（OneDrive 锁定时绕行用）
+dist-tmp
