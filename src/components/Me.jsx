@@ -56,8 +56,6 @@ function bfOf(bmi, age, gender) {
 export default function Me({ onBack, date }) {
   const settings = db.getSettings()
   const [proxyBase, setProxyBase] = useState(settings.wereadProxyBase || '')
-  const checkIn = db.getCheckIn(date) || {}
-  const checkItems = db.CHECKIN_ITEMS || []
   const fileRef = useRef(null)
   function exportData() {
     const blob = new Blob([db.exportData()], { type: 'application/json' })
@@ -102,16 +100,7 @@ export default function Me({ onBack, date }) {
         <div className="me-date">{date}</div>
       </div>
 
-      {/* 今日打卡圆点（保留功能入口，删除其余数据展示） */}
-      <div className="me-bodies">
-        <div className="me-checks">
-          {checkItems.map((c) => (
-            <span key={c.key} className={'me-cdot' + (checkIn[c.key] ? ' on' : '')} title={c.label}>{c.short}</span>
-          ))}
-        </div>
-      </div>
-
-      {/* Zion 个人宣言（大关键词 + 小陈述） */}
+      {/* Zion 个人宣言（大关键词 + 小陈述；一进来就是宣言，无打卡展示） */}
       <Manifesto />
 
       {/* 人生信条 */}
