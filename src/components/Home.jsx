@@ -184,48 +184,48 @@ function CheckInPanel({ onNav }) {
   )
 }
 
-// ---- Zion 个人宣言（1.0.0：Zion 栏核心内容，原文一字不改，仅做排版）----
-// 每段可含少量关键词强调（加粗加重，不整句加粗；文字内容不变）
-const MANIFESTO_TITLE = '活在未来，长期主义，量化成果，进步记录，不是简单重复！'
-const MANIFESTO_TITLE_EM = ['活在未来', '长期主义', '量化成果', '进步记录']
-const MANIFESTO_LINES = [
-  { text: '时间惩罚愚蠢时毫不留情。为了半年后的自己！！', em: ['半年后的自己'] },
-  { text: '这是我的战争，把自己从那些软件里抢回来！', em: ['这是我的战争'] },
-  { text: '现在浪费的时间日积月累，消耗的是未来5年，10年更好的生活，更好的发展', em: ['未来5年，10年'] },
-  { text: '我永远都不会丢掉我的心气，意气与勇气', em: ['心气', '意气', '勇气'] },
-  { text: '去他妈的幸存者偏差，永远不甘失败不服输，做出改变让自己更强大，眼见为实。', em: ['不甘失败', '不服输', '更强大', '眼见为实'] },
-]
-
-// 按关键词切分渲染（保持原文顺序与完整文本，仅包裹强调词）
-function ManifestoText({ text, em }) {
-  if (!em || em.length === 0) return text
-  let nodes = [text]
-  em.forEach((w, wi) => {
-    nodes = nodes.flatMap((n, ni) => {
-      if (typeof n !== 'string') return [n]
-      const parts = n.split(w)
-      if (parts.length === 1) return [n]
-      return parts.flatMap((p, pi) =>
-        pi === 0 ? [p] : [<em key={`${wi}-${ni}-${pi}`} className="mf-em">{w}</em>, p]
-      )
-    })
-  })
-  return nodes
-}
-
+// ---- Zion 个人宣言（1.0.0 正式版视觉：大关键词 + 小陈述，Editorial / Manifesto Poster 排版）----
+// 原文必须完整保留（完整句为小字正文）；大字为提炼的核心表达，形成「总纲 + 战斗宣言」层级
 function Manifesto() {
   return (
     <div className="card manifesto">
-      <h1 className="manifesto__head">
-        <ManifestoText text={MANIFESTO_TITLE} em={MANIFESTO_TITLE_EM} />
-      </h1>
-      <div className="manifesto__body">
-        {MANIFESTO_LINES.map((l, i) => (
-          <p key={i} className="manifesto__line">
-            <ManifestoText text={l.text} em={l.em} />
-          </p>
-        ))}
-      </div>
+      {/* ① 总纲：超大字 + 完整陈述 */}
+      <section className="mf-block mf-block--lead">
+        <h1 className="mf-big">活在未来</h1>
+        <p className="mf-small">长期主义，量化成果，进步记录，不是简单重复！</p>
+      </section>
+
+      {/* ② 时间 / 惩罚 */}
+      <section className="mf-block">
+        <div className="mf-big mf-big--md">惩罚愚蠢</div>
+        <p className="mf-small">时间惩罚愚蠢时毫不留情。为了半年后的自己！！</p>
+      </section>
+
+      {/* ③ 战争（左侧大字 + 强调字） */}
+      <section className="mf-block">
+        <div className="mf-big mf-big--md">
+          战争<span className="mf-accent"> · 抢</span>
+        </div>
+        <p className="mf-small">这是我的战争，把自己从那些软件里抢回来！</p>
+      </section>
+
+      {/* ④ 巨大数字：5年 / 10年 作为视觉主体 */}
+      <section className="mf-block">
+        <div className="mf-years"><span>5年</span><i>/</i><span>10年</span></div>
+        <p className="mf-small">现在浪费的时间日积月累，消耗的是未来5年，10年更好的生活，更好的发展</p>
+      </section>
+
+      {/* ⑤ 三词横向排列 */}
+      <section className="mf-block">
+        <div className="mf-words"><span>心气</span><span>意气</span><span>勇气</span></div>
+        <p className="mf-small">我永远都不会丢掉我的心气，意气与勇气</p>
+      </section>
+
+      {/* ⑥ 眼见为实 */}
+      <section className="mf-block">
+        <div className="mf-big mf-big--md">眼见为实</div>
+        <p className="mf-small">去他妈的幸存者偏差，永远不甘失败不服输，做出改变让自己更强大，眼见为实。</p>
+      </section>
     </div>
   )
 }

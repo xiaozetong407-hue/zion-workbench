@@ -106,10 +106,32 @@ export default function Reading() {
       const base = raw.replace(/\/api\/weread$/, '')
       const wereadUrl = base ? base + '/api/weread' : '/api/weread'
       const auth = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key }
-      const post = (api_name, extra) => fetch(wereadUrl, {
-        method: 'POST', headers: auth,
-        body: JSON.stringify(Object.assign({ api_name, skill_version: '1.0.5' }, extra)),
-      }).then((r) => r.json())
+      // 保留 status 与原始文本，便于精确诊断每一层失败（1.0.0 链路诊断）
+      const post = async (api_name, extra) => {
+        let resp
+        try {
+          resp = await fetch(wereadUrl, {
+            method: 'POST', headers: auth,
+            body: JSON.stringify(Object.assign({ api_name, skill_version: '1.0.5' }, extra)),
+          })
+        } catch (netErr) {
+          const e = new Error(`网络层失败：${netErr.message}（目标 ${wereadUrl}；多为代理不可达/未配置/CORS 拦截）`)
+          e.layer = 'network'; throw e
+        }
+        const text = await resp.text()
+        let body
+        try { body = text ? JSON.parse(text) : {} } catch { body = null }
+        // 代理层/网关层非 2xx 或业务错误：携带完整现场抛出
+        if (resp.status >= 400 || (body && body.errcode && body.errcode !== 0)) {
+          const e = new Error(
+            `同步失败：HTTP ${resp.status}｜errcode=${body && body.errcode !== undefined ? body.errcode : '—'}｜errmsg=${(body && body.errmsg) || '—'}${body && body.errlog ? '｜errlog=' + body.errlog : ''}（URL ${wereadUrl}）`
+          )
+          e.layer = resp.status === 401 ? 'auth' : (resp.status >= 500 ? 'proxy' : 'gateway')
+          e.status = resp.status; e.body = text.slice(0, 300)
+          throw e
+        }
+        return body || {}
+      }
 
       const shelf = await post('/shelf/sync')
       const all = shelf.books || []
@@ -200,12 +222,20 @@ export default function Reading() {
       setWereadHint('')
       localStorage.setItem('zion-weread-key', key)
     } catch (e) {
-      // 失败：多因纯静态部署无后端代理。有缓存则保留已连接；无缓存则提示需要代理。
+      // 1.0.0：不再静默——按失败层输出真实链路（auth=Key 无效 / proxy=代理层 / network=不可达 / 其他）
+      const layer = e.layer || 'unknown'
       if (db.getWereadBooks().length === 0) {
         setWereadConnected(false)
-        setWereadHint('代理不可达：请在「设置 → 微信读书代理」填写你的代理地址，或在电脑运行 `npm run serve` 后通过局域网/隧道打开本应用')
       }
-      setWereadErr('')
+      const tip =
+        layer === 'auth'
+          ? '（WRK-Key 无效或已过期：请确认复制完整 wrk- 开头 Key）'
+          : layer === 'proxy'
+          ? '（代理服务器返回 5xx：请检查代理是否可用）'
+          : layer === 'network'
+          ? '（网络层：代理不可达/未配置/CORS 拦截）'
+          : '（同步链路异常）'
+      setWereadErr(`${e.message}${tip}`)
     } finally {
       setWereadLoading(false)
     }
