@@ -112,6 +112,18 @@ export default function Me({ onBack, date }) {
       <div className="card data-tools">
         <div className="card-title">数据备份</div>
         <p className="muted">数据仅存于本机浏览器。建议定期导出备份，换手机或清缓存后可用备份恢复。</p>
+        {/* 1.1.0：备份提醒（导出时记录时间，超过 7 天提醒一次；从未导出也有提示） */}
+        {(() => {
+          const last = Number(typeof localStorage !== 'undefined' ? localStorage.getItem('zion-last-backup-at') : 0) || 0
+          const days = last > 0 ? Math.floor((Date.now() - last) / 86400000) : -1
+          if (days >= 7) {
+            return <div className="backup-remind">距上次导出备份已 {days} 天，建议现在导出</div>
+          }
+          if (last === 0) {
+            return <div className="backup-remind backup-remind--new">数据仅存在本机，建议先导出一份备份</div>
+          }
+          return null
+        })()}
         <div className="task-add">
           <button className="task-add__btn" onClick={exportData}>导出备份</button>
           <button

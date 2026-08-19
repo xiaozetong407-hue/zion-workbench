@@ -436,11 +436,11 @@ export const db = {
   },
 
   // ---- 自动弹窗「已提示」标记（按周期去重，避免重复打扰）----
+  // P1 修正：读函数绝不写数据（此前直接初始化 load() 返回的 cache 引用，属未提交的脏写）
   isPrompted(kind, key) {
     const data = load()
-    data.prompts = data.prompts || {}
-    data.prompts[kind] = data.prompts[kind] || {}
-    return !!data.prompts[kind][key]
+    const bucket = (data.prompts && data.prompts[kind]) || {}
+    return !!bucket[key]
   },
 
   markPrompted(kind, key) {
@@ -671,6 +671,8 @@ export const db = {
   // 导出全部数据（含版本与统计信息；data 为完整业务数据，可被旧版/新版共同识别）
   exportData() {
     const data = load()
+    // 1.1.0：记录本次导出时间（供「备份提醒」；独立 key，不污染业务数据，导出保持只读）
+    try { localStorage.setItem('zion-last-backup-at', String(Date.now())) } catch { /* 记录失败不影响导出 */ }
     return JSON.stringify(
       {
         appVersion: APP_VERSION,

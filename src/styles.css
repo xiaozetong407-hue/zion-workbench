@@ -2869,96 +2869,6 @@ h2 { font-size: 16px; font-weight: 800; }
 }
 .me-date { font-size: 13px; color: var(--muted); font-weight: 700; }
 
-/* 今日概览（关联状态栏） */
-.me-overview {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 7px;
-}
-.me-ov-cell {
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 10px 4px;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  box-shadow: 0 2px 8px rgba(30, 40, 80, 0.04);
-}
-.me-ov-cell span { font-size: 11px; color: var(--muted); font-weight: 700; }
-.me-ov-cell b { font-size: 16px; font-weight: 800; color: var(--ink); }
-
-/* 身体指标 + 今日打卡 */
-.me-bodies {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 11px 13px;
-  box-shadow: 0 2px 8px rgba(30, 40, 80, 0.04);
-}
-.me-body { display: flex; flex-direction: column; gap: 2px; }
-.me-body span { font-size: 11px; color: var(--muted); font-weight: 700; }
-.me-body b { font-size: 17px; font-weight: 800; color: var(--ink); }
-.me-checks { margin-left: auto; display: flex; gap: 5px; }
-.me-cdot {
-  width: 26px;
-  height: 26px;
-  border-radius: 8px;
-  background: #eef1f7;
-  color: #9aa3b8;
-  font-size: 12px;
-  font-weight: 800;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.me-cdot.on { background: linear-gradient(135deg, #2ec98f, #1ba974); color: #fff; }
-
-/* 关联概览（账本 / 读书 / 学习 / 任务） */
-.me-links {
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 2px 13px;
-  box-shadow: 0 2px 8px rgba(30, 40, 80, 0.04);
-}
-.me-link {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 0;
-  font-size: 13px;
-  border-bottom: 1px solid var(--line);
-}
-.me-link:last-child { border-bottom: none; }
-.me-link__k {
-  flex-shrink: 0;
-  width: 40px;
-  color: var(--muted);
-  font-weight: 800;
-}
-.me-link__v {
-  flex: 1;
-  color: var(--ink);
-  font-weight: 600;
-  line-height: 1.55;
-}
-.me-link__v b { color: var(--accent); }
-.me-study {
-  display: inline-block;
-  background: #f0f2f7;
-  border-radius: 50px;
-  padding: 2px 9px;
-  margin: 0 5px 3px 0;
-  font-size: 12px;
-  font-weight: 700;
-  color: #3a4256;
-}
-
 /* 人生信条 */
 .me-creed {
   background: var(--card);
@@ -2975,22 +2885,6 @@ h2 { font-size: 16px; font-weight: 800; }
   font-weight: 600;
 }
 
-/* 自我激励（统一左侧样式） */
-.me-mantras { display: flex; flex-direction: column; gap: 7px; }
-.me-mantra {
-  background: var(--card);
-  border-radius: 11px;
-  padding: 12px 13px;
-  box-shadow: 0 2px 8px rgba(30, 40, 80, 0.04);
-  border-left: 3px solid var(--accent);
-}
-.me-mantra__text {
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--ink);
-  font-weight: 600;
-  margin: 0;
-}
 .me-foot {
   text-align: center;
   font-size: 12px;
@@ -3417,4 +3311,22 @@ h2 { font-size: 16px; font-weight: 800; }
   .mf-years { font-size: 30px; }
   .mf-words { font-size: 25px; }
   .mf-small { font-size: 13.5px; }
+}
+
+/* ============ Zion 1.1.0：备份提醒（仅「我」页）============ */
+.backup-remind {
+  margin: 2px 0 10px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: #fff7e6;
+  border: 1px solid #f2dfb3;
+  color: #8a6420;
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.6;
+}
+.backup-remind--new {
+  background: #eef4ff;
+  border-color: #d3e2ff;
+  color: #3a5aa8;
 }
