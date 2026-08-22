@@ -356,6 +356,96 @@
     return { count: items.length, items: items }
   }
 
+  // ================= 关键数据体检（只读：深度解析 zion-data-v1 / zion-backup-last）=================
+  function detectSeed(d) {
+    return d && d._seeded === true && Array.isArray(d.tasks) && d.tasks.some(function (t) { return t && t.id === 'seed-1' })
+  }
+  function dateRangeOf(obj) {
+    const keys = Object.keys(obj || {}).sort()
+    if (!keys.length) return null
+    return { earliest: keys[0], latest: keys[keys.length - 1], count: keys.length }
+  }
+  function inspectKey(key) {
+    let raw = null
+    try { raw = localStorage.getItem(key) } catch (e) { return { exists: false, error: String(e) } }
+    if (raw == null) return { exists: false }
+    const info = { exists: true, length: raw.length }
+    try {
+      const d = JSON.parse(raw)
+      info.parsed = true
+      info.schemaVersion = (d && d.schemaVersion != null) ? d.schemaVersion : '（无，视为 v1）'
+      info.seeded = !!(d && d._seeded)
+      info.isSeedData = detectSeed(d)
+      info.fields = d ? Object.keys(d) : []
+      info.counts = {
+        tasks: Array.isArray(d.tasks) ? d.tasks.length : '—',
+        checkIns: d.checkIns ? Object.keys(d.checkIns).length : '—',
+        reviews: d.reviews ? Object.keys(d.reviews).length : '—',
+        ledger: Array.isArray(d.ledger) ? d.ledger.length : '—',
+        status: d.status ? Object.keys(d.status).length : '—',
+        quotes: Array.isArray(d.quotes) ? d.quotes.length : '—',
+        pastReports: Array.isArray(d.pastReports) ? d.pastReports.length : '—',
+        ideas: Array.isArray(d.ideas) ? d.ideas.length : '—',
+        wereadReviews: Array.isArray(d.wereadReviews) ? d.wereadReviews.length : '—',
+      }
+      info.checkInsRange = dateRangeOf(d.checkIns)
+      info.reviewsRange = dateRangeOf(d.reviews)
+      info.tasksPreview = (Array.isArray(d.tasks) ? d.tasks : []).slice(0, 3).map(function (t) { return t ? String(t.title) : '' })
+      info.verdict = info.isSeedData
+        ? '⚠ 演示种子数据（应用重新初始化生成，非真实历史）'
+        : (info.counts.tasks !== '—' || info.counts.checkIns !== '—')
+          ? '✓ 疑似真实数据（含业务记录，非种子）'
+          : '（无法判断）'
+    } catch (e) {
+      info.parsed = false
+      info.parseError = String(e)
+    }
+    return info
+  }
+  function renderKeyHealthCard() {
+    const card = el('div', 'card')
+    card.appendChild(el('h2', '', '关键数据体检（只读深度解析）'))
+    const targets = [
+      { key: 'zion-data-v1', label: '主数据（当前使用）' },
+      { key: 'zion-backup-last', label: '导入前自动备份（若做过导入操作才存在）' },
+      { key: 'zion-last-backup-at', label: '最近导出备份时间戳（1.1.0 起）' },
+    ]
+    targets.forEach(function (t) {
+      const info = inspectKey(t.key)
+      const det = el('details', 'tree'); det.open = true
+      const statusTag = !info.exists ? '（不存在）' : (info.parsed ? '' : '（存在但无法解析 JSON）')
+      det.appendChild(el('summary', '', t.key + '  ' + statusTag + '  ·  ' + t.label))
+      const inner = el('div', 'tree-inner')
+      if (!info.exists) {
+        inner.appendChild(el('div', 'muted', '（此 key 不存在）'))
+      } else {
+        inner.appendChild(kvRow('长度', String(info.length) + ' 字符'))
+        if (!info.parsed) {
+          inner.appendChild(el('div', 'err-txt', 'JSON 解析失败: ' + (info.parseError || '')))
+        } else {
+          if (t.key === 'zion-last-backup-at') {
+            const ts = Number(localStorage.getItem(t.key))
+            inner.appendChild(kvRow('值', String(localStorage.getItem(t.key))))
+            if (ts > 0) inner.appendChild(kvRow('即时间', new Date(ts).toLocaleString()))
+          } else {
+            inner.appendChild(kvRow('判定', info.verdict, info.isSeedData ? 'err-txt' : 'ok-txt'))
+            inner.appendChild(kvRow('schemaVersion', String(info.schemaVersion)))
+            inner.appendChild(kvRow('_seeded', String(info.seeded)))
+            inner.appendChild(kvRow('顶层字段', (info.fields || []).join(', ') || '（无）'))
+            const c = info.counts
+            inner.appendChild(kvRow('记录数', 'tasks=' + c.tasks + ' · checkIns=' + c.checkIns + ' · reviews=' + c.reviews + ' · ledger=' + c.ledger + ' · status=' + c.status + ' · quotes=' + c.quotes + ' · pastReports=' + c.pastReports + ' · ideas=' + c.ideas + ' · wereadReviews=' + c.wereadReviews))
+            if (info.checkInsRange) inner.appendChild(kvRow('checkIns 日期范围', info.checkInsRange.earliest + ' ~ ' + info.checkInsRange.latest + '（' + info.checkInsRange.count + ' 天）'))
+            if (info.reviewsRange) inner.appendChild(kvRow('reviews 日期范围', info.reviewsRange.earliest + ' ~ ' + info.reviewsRange.latest + '（' + info.reviewsRange.count + ' 天）'))
+            if (info.tasksPreview && info.tasksPreview.length) inner.appendChild(kvRow('前 3 个任务', info.tasksPreview.join(' | ')))
+          }
+        }
+      }
+      det.appendChild(inner)
+      card.appendChild(det)
+    })
+    return card
+  }
+
   // ================= 总扫描 =================
   async function runScan() {
     log('开始只读扫描…')
@@ -402,6 +492,8 @@
 
   function renderTree(r) {
     outEl.innerHTML = ''
+    // 关键数据体检置顶（含 zion-backup-last 深度解析）
+    outEl.appendChild(renderKeyHealthCard())
     const card = el('div', 'card')
     card.appendChild(el('h2', '', '扫描结果（' + (r.scanTime || '').slice(0, 19).replace('T', ' ') + '）'))
 
