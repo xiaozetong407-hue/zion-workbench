@@ -1,5 +1,6 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { db } from '../store/db.js'
+import { getPersistence } from '../store/storageGuard.js'
 
 // 用户信条（来自用户本人，逐字呈现）
 const CREED = '用最宝贵的东西——生命创造价值，度过幸福精彩的一生，不枉过这一生。睡前记录三类事，安排一段时间远离屏幕'
@@ -56,6 +57,13 @@ function bfOf(bmi, age, gender) {
 export default function Me({ onBack, date }) {
   const settings = db.getSettings()
   const [proxyBase, setProxyBase] = useState(settings.wereadProxyBase || '')
+  // 1.1.1：持久化存储保护状态（异步查询；任何环境不报错）
+  const [persistence, setPersistence] = useState('unknown')
+  useEffect(() => {
+    let alive = true
+    getPersistence().then((s) => { if (alive) setPersistence(s) }).catch(() => { if (alive) setPersistence('normal') })
+    return () => { alive = false }
+  }, [])
   const fileRef = useRef(null)
   function exportData() {
     const blob = new Blob([db.exportData()], { type: 'application/json' })
@@ -112,17 +120,32 @@ export default function Me({ onBack, date }) {
       <div className="card data-tools">
         <div className="card-title">数据备份</div>
         <p className="muted">数据仅存于本机浏览器。建议定期导出备份，换手机或清缓存后可用备份恢复。</p>
-        {/* 1.1.0：备份提醒（导出时记录时间，超过 7 天提醒一次；从未导出也有提示） */}
+        {/* 1.1.1：存储保护状态 + 备份状态（持久化保护 ≠ 备份） */}
         {(() => {
           const last = Number(typeof localStorage !== 'undefined' ? localStorage.getItem('zion-last-backup-at') : 0) || 0
+          const lastText = last > 0 ? new Date(last).toLocaleDateString('zh-CN') : null
           const days = last > 0 ? Math.floor((Date.now() - last) / 86400000) : -1
-          if (days >= 7) {
-            return <div className="backup-remind">距上次导出备份已 {days} 天，建议现在导出</div>
+          const pMap = {
+            persisted: ['已获得持久化保护 ✅', '浏览器已为 Zion 的站点存储提供持久化保护，可降低因浏览器自动清理导致的数据丢失风险。'],
+            normal: ['普通模式 ⚠️', '当前浏览器未授予持久化存储保护，建议定期导出备份。'],
+            unsupported: ['当前浏览器不支持', '当前浏览器不支持该存储保护能力，请依赖定期备份。'],
+            unknown: ['检测中…', ''],
           }
-          if (last === 0) {
-            return <div className="backup-remind backup-remind--new">数据仅存在本机，建议先导出一份备份</div>
-          }
-          return null
+          const p = pMap[persistence] || pMap.unknown
+          return (
+            <div className="storage-status">
+              <div className={'storage-status__row' + (persistence === 'persisted' ? ' is-ok' : persistence === 'normal' ? ' is-warn' : '')}>
+                数据存储：{p[0]}
+                {p[1] && <span className="storage-status__desc"> {p[1]}</span>}
+              </div>
+              <div className={'storage-status__row' + (lastText ? ' is-ok' : ' is-warn')}>
+                上次备份：{lastText || '尚未备份 ⚠️'}
+                <span className="storage-status__desc"> 持久化保护不等于备份，请定期导出。</span>
+              </div>
+              {days >= 7 && <div className="backup-remind">距上次导出备份已 {days} 天，建议现在导出</div>}
+              {last === 0 && <div className="backup-remind backup-remind--new">数据仅存在本机，建议先导出一份备份</div>}
+            </div>
+          )
         })()}
         <div className="task-add">
           <button className="task-add__btn" onClick={exportData}>导出备份</button>

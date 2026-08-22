@@ -3330,3 +3330,10 @@ h2 { font-size: 16px; font-weight: 800; }
   border-color: #d3e2ff;
   color: #3a5aa8;
 }
+
+/* ============ Zion 1.1.1：存储保护状态（仅「我」页）============ */
+.storage-status { margin: 4px 0 10px; }
+.storage-status__row { font-size: 13px; font-weight: 700; line-height: 1.7; color: var(--ink); }
+.storage-status__row.is-ok { color: #1f8f5a; }
+.storage-status__row.is-warn { color: #b45309; }
+.storage-status__desc { font-size: 12px; font-weight: 500; color: var(--muted); }
