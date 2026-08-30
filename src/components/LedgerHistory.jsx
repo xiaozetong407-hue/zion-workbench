@@ -64,9 +64,10 @@ function CaretIcon({ open }) {
   )
 }
 
-export default function LedgerHistory({ onBack }) {
+export default function LedgerHistory({ onBack, initialScope = 'exp' }) {
   const [items, setItems] = useState([])
-  const [scope, setScope] = useState('exp')
+  // 1.1.3：scope 支持 exp=支出历史 / inc=收入历史 / all=全部；由账本栏按钮决定初始值
+  const [scope, setScope] = useState(initialScope === 'inc' || initialScope === 'all' ? initialScope : 'exp')
   const [search, setSearch] = useState('')
   const [collapsed, setCollapsed] = useState({}) // 记录被「显式」折叠/展开的月份
   const [editId, setEditId] = useState('')
@@ -84,7 +85,11 @@ export default function LedgerHistory({ onBack }) {
   const incTotal = items.filter((it) => it.type === 'inc').reduce((s, it) => s + it.amount, 0)
   const balance = incTotal - expTotal
 
-  const scoped = scope === 'exp' ? items.filter((it) => it.type === 'exp') : items
+  // 1.1.3：按当前视图（支出 / 收入 / 全部）取数，供分布图与统计使用
+  const scoped =
+    scope === 'exp' ? items.filter((it) => it.type === 'exp')
+      : scope === 'inc' ? items.filter((it) => it.type === 'inc')
+        : items
   const tagData = byTag(scoped)
   const seg = makePie(tagData, 52, 60, 60)
   const monthData = byMonth(items)
@@ -106,7 +111,7 @@ export default function LedgerHistory({ onBack }) {
     ;(map[k] = map[k] || []).push(it)
   })
   const sortedMonths = Object.keys(map).sort((a, b) => (a < b ? 1 : -1))
-  const latestMonth = sortedMonths[0]
+  // 1.1.3：不再默认展开最新月份——「全部明细」默认全部收起（原：const latestMonth = sortedMonths[0]）
   const groups = sortedMonths.map((k) => {
     const list = map[k].sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt || 0) - (a.createdAt || 0))
     const exp = list.filter((x) => x.type === 'exp').reduce((s, x) => s + x.amount, 0)
@@ -114,12 +119,12 @@ export default function LedgerHistory({ onBack }) {
     return { month: k, items: list, exp, inc, count: list.length }
   })
 
-  // 某月份是否展开：默认仅最新月份展开，其余收起；搜索时全部展开；用户手动状态优先
+  // 某月份是否展开：1.1.3 起默认全部收起；搜索时全部展开；用户手动状态优先
   function isOpen(m) {
     if (forceOpen) return true
     if (collapsed[m] === false) return true
     if (collapsed[m] === true) return false
-    return m === latestMonth
+    return false
   }
   function toggleMonth(m) {
     const cur = isOpen(m)
@@ -171,7 +176,7 @@ export default function LedgerHistory({ onBack }) {
         <button className="back-btn" onClick={onBack}>
           ← 返回
         </button>
-        <span className="card-title">支出历史</span>
+        <span className="card-title">{scope === 'inc' ? '收入历史' : scope === 'all' ? '全部历史' : '支出历史'}</span>
       </div>
 
       {/* 累计结余主卡 */}
@@ -206,10 +211,12 @@ export default function LedgerHistory({ onBack }) {
       {/* 按标签分布 */}
       <div className="card">
         <div className="card-title">
-          支出分布
+          {scope === 'inc' ? '收入分布' : scope === 'all' ? '收支分布' : '支出分布'}
+          {/* 1.1.3：支出 / 收入 / 全部 三态切换 */}
           <div className="seg" style={{ transform: 'scale(0.86)', transformOrigin: 'right' }}>
+            <button className={'seg-btn' + (scope === 'exp' ? ' active' : '')} onClick={() => setScope('exp')}>支出</button>
+            <button className={'seg-btn' + (scope === 'inc' ? ' active' : '')} onClick={() => setScope('inc')}>收入</button>
             <button className={'seg-btn' + (scope === 'all' ? ' active' : '')} onClick={() => setScope('all')}>全部</button>
-            <button className={'seg-btn' + (scope === 'exp' ? ' active' : '')} onClick={() => setScope('exp')}>仅支出</button>
           </div>
         </div>
         {seg.length > 0 ? (
@@ -231,7 +238,7 @@ export default function LedgerHistory({ onBack }) {
             </div>
           </div>
         ) : (
-          <p className="muted" style={{ padding: '6px 0' }}>暂无支出记录</p>
+          <p className="muted" style={{ padding: '6px 0' }}>暂无{scope === 'inc' ? '收入' : '支出'}记录</p>
         )}
       </div>
 

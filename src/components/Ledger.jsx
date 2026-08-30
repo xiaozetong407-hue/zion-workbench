@@ -62,6 +62,8 @@ export default function Ledger({ onNav }) {
   const [items, setItems] = useState(db.getLedger())
   useLive(() => setItems(db.getLedger()))
   const [piePeriod, setPiePeriod] = useState('month')
+  // 1.1.3：分布图类型（支出 / 收入），可切换
+  const [pieType, setPieType] = useState('exp')
   // 记一笔：内联表单（常驻页面，无需点击展开）
   const [type, setType] = useState('exp')
   const [tag, setTag] = useState(EXP_TAGS[0])
@@ -129,7 +131,8 @@ export default function Ledger({ onNav }) {
   // ---- 周期饼图 ----
   const periodFn = PERIODS.find((p) => p.key === piePeriod)?.fn || monthKey
   const pKey = periodFn(today)
-  const periodExp = items.filter((it) => it.type === 'exp' && periodFn(it.date) === pKey)
+  // 1.1.3：按当前分布类型（支出 / 收入）统计
+  const periodExp = items.filter((it) => it.type === pieType && periodFn(it.date) === pKey)
   const byTag = {}
   periodExp.forEach((it) => { byTag[it.tag] = (byTag[it.tag] || 0) + it.amount })
   const pieData = Object.entries(byTag).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value)
@@ -201,10 +204,10 @@ export default function Ledger({ onNav }) {
         </button>
       </div>
 
-      {/* 支出分布（在记一笔下方） */}
+      {/* 分布（支出 / 收入可切换，在记一笔下方） */}
       <div className="card">
         <div className="card-title">
-          支出分布
+          {pieType === 'inc' ? '收入分布' : '支出分布'}
           <div className="period-tabs">
             {PERIODS.map((p) => (
               <button key={p.key} className={'chip' + (piePeriod === p.key ? ' active' : '')} onClick={() => setPiePeriod(p.key)}>
@@ -212,6 +215,12 @@ export default function Ledger({ onNav }) {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* 1.1.3：支出 / 收入 分布切换 */}
+        <div className="seg ledger-pie-type">
+          <button className={'seg-btn' + (pieType === 'exp' ? ' active' : '')} onClick={() => setPieType('exp')}>支出</button>
+          <button className={'seg-btn' + (pieType === 'inc' ? ' active' : '')} onClick={() => setPieType('inc')}>收入</button>
         </div>
 
         {seg.length > 0 ? (
@@ -233,15 +242,15 @@ export default function Ledger({ onNav }) {
                 ))}
               </div>
             </div>
-            {/* 右下角：进入支出历史统计二级页面 */}
+            {/* 右下角：进入对应（支出 / 收入）历史统计二级页面 */}
             <div className="pie-action">
-              <button className="guides-refresh" onClick={() => onNav('ledgerHistory')}>
-                <ListIcon /> 支出历史
+              <button className="guides-refresh" onClick={() => onNav('ledgerHistory', { ledgerScope: pieType })}>
+                <ListIcon /> {pieType === 'inc' ? '收入历史' : '支出历史'}
               </button>
             </div>
           </>
         ) : (
-          <p className="muted" style={{ padding: '6px 0' }}>还没有支出记录，上方记一笔开始</p>
+          <p className="muted" style={{ padding: '6px 0' }}>还没有{pieType === 'inc' ? '收入' : '支出'}记录，上方记一笔开始</p>
         )}
       </div>
 

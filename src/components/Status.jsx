@@ -71,9 +71,7 @@ export default function Status({ date }) {
   const [settings, setSettings] = useState(db.getSettings())
   const [saved, setSaved] = useState(false)
   const savedTimer = useRef(null)
-  const [huaweiLinked, setHuaweiLinked] = useState(() => (typeof localStorage !== 'undefined' ? localStorage.getItem('zion-huawei-linked') === '1' : false))
-  const [huaweiBusy, setHuaweiBusy] = useState(false)
-  const [huaweiMsg, setHuaweiMsg] = useState('')
+  // 1.1.3：已移除华为运动健康板块（含 huaweiLinked/huaweiBusy/huaweiMsg 与 syncHuawei）
 
   useEffect(() => {
     setForm(getStatusDraft(day) || loadForm(day))
@@ -101,8 +99,11 @@ export default function Status({ date }) {
   function saveStatus() {
     const f = form
     const sh = (Number(f.sleepH) || 0) + (Number(f.sleepM) || 0) / 60
+    // 1.1.3：额外存一份「整分钟」，供历史明细/平均按「X小时Y分钟」精确显示（老数据无此字段时按 sleepHours 反算）
+    const sleepMin = (Number(f.sleepH) || 0) * 60 + (Number(f.sleepM) || 0)
     db.setStatus(day, {
       sleepHours: sh ? Math.round(sh * 10) / 10 : '',
+      sleepMinutes: sleepMin > 0 ? sleepMin : '',
       steps: f.steps || '',
       calories: f.calories || '',
       exerciseMin: f.exerciseMin || '',
@@ -123,68 +124,6 @@ export default function Status({ date }) {
     db.setSettings({ [k]: v })
   }
 
-  async function syncHuawei() {
-    setHuaweiBusy(true); setHuaweiMsg('')
-    try {
-      const r = await fetch('/api/huawei/data')
-      const j = await r.json()
-      if (j.needAuth) { setHuaweiMsg('尚未授权：请先在终端运行 npm run huawei:auth 完成一次性授权'); setHuaweiBusy(false); return }
-      const dayMap = {}
-      ;(j.group || []).forEach((g) => {
-        const isStep = (g.dataTypeName || '').includes('step')
-        const isCal = (g.dataTypeName || '').includes('calorie')
-        const isSleep = (g.dataTypeName || '').includes('sleep')
-        ;(g.sampleSet || []).forEach((ss) => {
-          const key = ss.startTime ? new Date(Number(ss.startTime)).toISOString().slice(0, 10) : 'latest'
-          const v = Number((ss.value && ss.value[0]) || 0)
-          if (!dayMap[key]) dayMap[key] = { steps: 0, calories: 0, sleepMs: 0 }
-          if (isStep) dayMap[key].steps += v
-          if (isCal) dayMap[key].calories += v
-          if (isSleep) {
-            const dur = (Number(ss.endTime) - Number(ss.startTime)) || v
-            dayMap[key].sleepMs += dur > 0 ? dur : 0
-          }
-        })
-      })
-      const keys = Object.keys(dayMap).sort()
-      const pick = dayMap[date] || dayMap['latest'] || dayMap[keys[keys.length - 1]]
-      if (pick && (pick.steps || pick.calories || pick.sleepMs)) {
-        const out = {}
-      if (pick.steps) out.steps = String(Math.round(pick.steps))
-      if (pick.calories) out.calories = String(Math.round(pick.calories))
-      if (pick.sleepMs) out.sleepH = String(Math.round((pick.sleepMs / 3600000) * 10) / 10)
-      db.setStatus(day, {
-        sleepHours: out.sleepH ? Number(out.sleepH) : '',
-        steps: out.steps || '',
-        calories: out.calories || '',
-        exerciseMin: form.exerciseMin || '',
-        weight: settings.weight || '',
-      })
-      setForm((p) => {
-        const np = {
-          ...p,
-          ...(out.sleepH ? { sleepH: out.sleepH } : {}),
-          ...(out.steps ? { steps: out.steps } : {}),
-          ...(out.calories ? { calories: out.calories } : {}),
-        }
-        setStatusDraft(day, np)
-        return np
-      })
-      setHuaweiLinked(true)
-      try { localStorage.setItem('zion-huawei-linked', '1') } catch (e) {}
-      const parts = []
-      if (out.steps) parts.push('步数 ' + Math.round(pick.steps))
-      if (out.calories) parts.push('卡路里 ' + Math.round(pick.calories))
-      if (out.sleepH) parts.push('睡眠 ' + out.sleepH + 'h')
-      setHuaweiMsg('已同步：' + parts.join(' / '))
-      }
-    } catch (e) {
-      setHuaweiMsg('同步失败：' + (e.message || '网络错误'))
-    } finally {
-      setHuaweiBusy(false)
-    }
-  }
-
   const height = Number(settings.height) || 0
   const weight = Number(settings.weight) || 0
   const age = Number(settings.age) || 0
@@ -202,26 +141,6 @@ export default function Status({ date }) {
 
   return (
     <div className="page">
-      <div className="card">
-        <div className="card-title">华为运动健康</div>
-        {!huaweiLinked ? (
-          <div className="huawei-connect">
-            <span className="muted" style={{ fontSize: 12 }}>先运行 npm run huawei:auth 一次性授权，之后点此同步步数与卡路里</span>
-            <button className="pill-btn" onClick={syncHuawei} disabled={huaweiBusy}>
-              {huaweiBusy ? '同步中…' : '连接华为运动健康'}
-            </button>
-          </div>
-        ) : (
-          <div className="huawei-connect">
-            <span className="weread-dot">已连接</span>
-            <button className="pill-btn pill-btn--ghost" onClick={syncHuawei} disabled={huaweiBusy}>
-              {huaweiBusy ? '同步中…' : '同步今日数据'}
-            </button>
-          </div>
-        )}
-        {huaweiMsg && <div className="weread-err" style={{ color: 'var(--muted)' }}>{huaweiMsg}</div>}
-      </div>
-
       <div className="card">
         <div className="card-title status-card-title">
           <span>今日状态 · {mmdd(day)}</span>

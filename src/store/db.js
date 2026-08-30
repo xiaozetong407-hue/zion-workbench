@@ -13,7 +13,7 @@ import { validateData, migrateData, deepClone, SCHEMA_VERSION, schemaVersionOf }
 import sync from './sync.js'
 
 // 与 package.json version 保持一致（手工同步）
-const APP_VERSION = '1.1.1'
+const APP_VERSION = '1.1.3'
 // 导入前自动备份的 key（独立于业务 blob，供「恢复上一次备份」）
 const BACKUP_KEY = 'zion-backup-last'
 

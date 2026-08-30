@@ -100,6 +100,19 @@ function dayLabel(d) {
   return d.slice(5)
 }
 
+// 1.1.3：睡眠按「X小时Y分钟」显示。
+// 优先用精确的整分钟字段 sleepMinutes（1.1.3 起新记录），老数据无该字段时按 sleepHours 小数反算。
+function fmtSleepHM(sleepMinutes, sleepHours) {
+  let total = Number(sleepMinutes)
+  if (!total || total <= 0) total = Math.round((Number(sleepHours) || 0) * 60)
+  if (!total || total <= 0) return '-'
+  const h = Math.floor(total / 60)
+  const m = total % 60
+  if (h > 0 && m > 0) return `${h}小时${m}分钟`
+  if (h > 0) return `${h}小时`
+  return `${m}分钟`
+}
+
 // 平均卡片（平均视图用）
 function AvgCard({ label, value, unit }) {
   return (
@@ -172,6 +185,8 @@ export default function StatusHistory({ onClose }) {
         date: d,
         weight: s.weight != null ? s.weight : '',
         sleepHours: s.sleepHours != null ? s.sleepHours : '',
+        // 1.1.3：精确整分钟（新记录有），用于「X小时Y分钟」显示
+        sleepMinutes: s.sleepMinutes != null ? s.sleepMinutes : '',
         steps: s.steps != null ? s.steps : '',
         calories: s.calories != null ? s.calories : '',
         exerciseMin: s.exerciseMin != null ? s.exerciseMin : '',
@@ -194,7 +209,7 @@ export default function StatusHistory({ onClose }) {
     const height = Number(settings.height) || 0
     const [from, to] = avgRange
     const days = Object.keys(all).filter((d) => d >= from && d <= to).sort()
-    const sum = { weight: 0, sleep: 0, steps: 0, calories: 0, exercise: 0, bmi: 0 }
+    const sum = { weight: 0, sleep: 0, sleepMin: 0, steps: 0, calories: 0, exercise: 0, bmi: 0 }
     const cnt = { weight: 0, sleep: 0, steps: 0, calories: 0, exercise: 0, bmi: 0 }
     days.forEach((d) => {
       const s = all[d] || {}
@@ -208,7 +223,11 @@ export default function StatusHistory({ onClose }) {
         }
       }
       const sl = Number(s.sleepHours) || 0
-      if (sl > 0) { sum.sleep += sl; cnt.sleep += 1 }
+      if (sl > 0) {
+        sum.sleep += sl; cnt.sleep += 1
+        // 1.1.3：优先用精确整分钟，老数据按小数小时反算
+        sum.sleepMin += Number(s.sleepMinutes) || Math.round(sl * 60)
+      }
       const st = Number(s.steps) || 0
       if (st > 0) { sum.steps += st; cnt.steps += 1 }
       const ca = Number(s.calories) || 0
@@ -225,6 +244,8 @@ export default function StatusHistory({ onClose }) {
       weight: cnt.weight ? round1(avg('weight')) : null,
       bmi: cnt.bmi ? round1(avg('bmi')) : null,
       sleep: cnt.sleep ? round1(avg('sleep')) : null,
+      // 1.1.3：平均睡眠的「X小时Y分钟」文本
+      sleepHM: cnt.sleep ? fmtSleepHM(Math.round(sum.sleepMin / cnt.sleep), 0) : null,
       steps: cnt.steps ? Math.round(avg('steps')) : null,
       calories: cnt.calories ? Math.round(avg('calories')) : null,
       exercise: cnt.exercise ? round1(avg('exercise')) : null,
@@ -238,12 +259,16 @@ export default function StatusHistory({ onClose }) {
     const to = todayStr()
     const from = addDays(to, -6)
     const days = Object.keys(all).filter((d) => d >= from && d <= to).sort()
-    const sum = { sleep: 0, steps: 0, calories: 0, exercise: 0 }
+    const sum = { sleep: 0, sleepMin: 0, steps: 0, calories: 0, exercise: 0 }
     const cnt = { sleep: 0, steps: 0, calories: 0, exercise: 0 }
     days.forEach((d) => {
       const s = all[d] || {}
       const sl = Number(s.sleepHours) || 0
-      if (sl > 0) { sum.sleep += sl; cnt.sleep += 1 }
+      if (sl > 0) {
+        sum.sleep += sl; cnt.sleep += 1
+        // 1.1.3：优先用精确整分钟，老数据按小数小时反算
+        sum.sleepMin += Number(s.sleepMinutes) || Math.round(sl * 60)
+      }
       const st = Number(s.steps) || 0
       if (st > 0) { sum.steps += st; cnt.steps += 1 }
       const ca = Number(s.calories) || 0
@@ -255,6 +280,8 @@ export default function StatusHistory({ onClose }) {
     return {
       from, to, days: days.length,
       sleep: cnt.sleep ? round1(sum.sleep / cnt.sleep) : null,
+      // 1.1.3：近 7 日平均睡眠的「X小时Y分钟」文本
+      sleepHM: cnt.sleep ? fmtSleepHM(Math.round(sum.sleepMin / cnt.sleep), 0) : null,
       steps: cnt.steps ? Math.round(sum.steps / cnt.steps) : null,
       calories: cnt.calories ? Math.round(sum.calories / cnt.calories) : null,
       exercise: cnt.exercise ? round1(sum.exercise / cnt.exercise) : null,
@@ -401,7 +428,8 @@ export default function StatusHistory({ onClose }) {
             ) : (
               <div className="sh-avg__grid">
                 {/* 需求 7：平均栏不展示平均体重 / 平均 BMI */}
-                <AvgCard label="平均睡眠" value={averages.sleep} unit="小时" />
+                {/* 1.1.3：平均睡眠改为「X小时Y分钟」 */}
+                <AvgCard label="平均睡眠" value={averages.sleepHM} unit="" />
                 <AvgCard label="平均步数" value={averages.steps} unit="步" />
                 <AvgCard label="平均卡路里" value={averages.calories} unit="kcal" />
                 <AvgCard label="平均活动" value={averages.exercise} unit="小时" />
@@ -433,7 +461,7 @@ export default function StatusHistory({ onClose }) {
                   {/* 过去一周平均（有记录的近 7 天，按项统计；不含体重/BMI） */}
                   <tr className="sh-table__avg">
                     <td>近7日平均</td>
-                    <td>{weekAvg.sleep ?? '-'}</td>
+                    <td>{weekAvg.sleepHM ?? '-'}</td>
                     <td>{weekAvg.steps ?? '-'}</td>
                     <td>{weekAvg.calories ?? '-'}</td>
                     <td>{weekAvg.exercise ?? '-'}</td>
@@ -441,7 +469,7 @@ export default function StatusHistory({ onClose }) {
                   {rows.map((r) => (
                     <tr key={r.date} onClick={() => openEdit(r)}>
                       <td>{r.date.slice(5)}</td>
-                      <td>{r.sleepHours === '' ? '-' : r.sleepHours}</td>
+                      <td>{fmtSleepHM(r.sleepMinutes, r.sleepHours)}</td>
                       <td>{r.steps === '' ? '-' : r.steps}</td>
                       <td>{r.calories === '' ? '-' : r.calories}</td>
                       <td>{r.exerciseMin === '' ? '-' : Math.round(Number(r.exerciseMin) * 10) / 10}</td>

@@ -90,6 +90,21 @@ export default function Review({ date, onNav }) {
     })
   }
 
+  // 1.1.3：周复盘独立保存——只写入 weekly 字段，不推进记录日、不触碰日复盘内容
+  const [weeklySaved, setWeeklySaved] = useState(false)
+  function saveWeekly() {
+    const w = r.weekly || {}
+    if (!w.advanced && !w.issue && !w.next) return
+    db.setReview(day, { weekly: w })
+    setWeeklySaved(true)
+  }
+
+  // 1.1.3：上一周周复盘（上个周日的 weekly 字段），写作时附在下方供参考
+  const lastSundayKey = addDays(day, -7)
+  const lastWeekly = (db.getReview(lastSundayKey) || {}).weekly || null
+  const lastWeekRange = `${mmdd(addDays(lastSundayKey, -6))} ~ ${mmdd(lastSundayKey)}`
+  const [lastWeeklyOpen, setLastWeeklyOpen] = useState(false)
+
   function save() {
     db.setReview(day, r)
     clearReviewDraft()
@@ -160,7 +175,7 @@ export default function Review({ date, onNav }) {
 
       {/* 周复盘：仅当复盘日期为周日时显示（覆盖本周一~周日） */}
       {isSunday && (
-        <div className="card">
+        <div className="card weekly-review-card">
           <div className="review-head">
             <h2>周复盘 · {weekRange}</h2>
             <span className="muted" style={{ fontSize: 12 }}>本周一至周日</span>
@@ -189,6 +204,46 @@ export default function Review({ date, onNav }) {
               onChange={(e) => updateWeekly('next', e.target.value)}
             />
           </label>
+
+          {/* 1.1.3：周复盘独立保存按钮，与日复盘「保存复盘」互不干扰 */}
+          <button className="primary" onClick={saveWeekly}>
+            保存周复盘
+          </button>
+          {weeklySaved && (
+            <div className="ok">
+              <svg className="ok__check" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 13l4 4 10-10" /></svg>
+              周复盘已保存（不影响日复盘，记录日不推进）
+            </div>
+          )}
+
+          {/* 1.1.3：上一周周复盘附在下方供参考（默认收起，点击展开） */}
+          <div className="wr-ref">
+            <button className="checkin-link wr-ref__toggle" onClick={() => setLastWeeklyOpen((o) => !o)}>
+              参考上一周周复盘（{lastWeekRange}）{lastWeeklyOpen ? '收起' : '展开'}
+            </button>
+            {lastWeeklyOpen && (
+              <div className="wr-ref__body">
+                {lastWeekly ? (
+                  <>
+                    <div className="wr-field">
+                      <div className="wr-label">a. 本周推进了什么内容？</div>
+                      <div className="wr-value">{lastWeekly.advanced || '—'}</div>
+                    </div>
+                    <div className="wr-field">
+                      <div className="wr-label">b. 没做好 / 分心的事</div>
+                      <div className="wr-value">{lastWeekly.issue || '—'}</div>
+                    </div>
+                    <div className="wr-field">
+                      <div className="wr-label">c. 下周重推进什么事？</div>
+                      <div className="wr-value">{lastWeekly.next || '—'}</div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="muted">上一周还没有填写周复盘</div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

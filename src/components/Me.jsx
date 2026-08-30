@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { db } from '../store/db.js'
 import { getPersistence } from '../store/storageGuard.js'
+import { runStorageDiagnostic } from '../store/storageDiag.js'
 
 // 用户信条（来自用户本人，逐字呈现）
 const CREED = '用最宝贵的东西——生命创造价值，度过幸福精彩的一生，不枉过这一生。睡前记录三类事，安排一段时间远离屏幕'
@@ -64,6 +65,19 @@ export default function Me({ onBack, date }) {
     getPersistence().then((s) => { if (alive) setPersistence(s) }).catch(() => { if (alive) setPersistence('normal') })
     return () => { alive = false }
   }, [])
+  // 1.1.2：一键存储诊断（只读，不修改任何数据）
+  const [diag, setDiag] = useState(null)
+  const [diagBusy, setDiagBusy] = useState(false)
+  async function runDiag() {
+    setDiagBusy(true)
+    try {
+      setDiag(await runStorageDiagnostic())
+    } catch (e) {
+      setDiag({ summary: '诊断异常：' + (e && e.message), lines: [] })
+    } finally {
+      setDiagBusy(false)
+    }
+  }
   const fileRef = useRef(null)
   function exportData() {
     const blob = new Blob([db.exportData()], { type: 'application/json' })
@@ -156,9 +170,10 @@ export default function Me({ onBack, date }) {
           >恢复备份</button>
           <button
             className="task-add__btn"
-            style={{ background: 'transparent', color: 'var(--muted)', border: '1px solid var(--line)' }}
-            onClick={restoreLastBackup}
-          >恢复上一次备份</button>
+            style={{ background: 'transparent', color: 'var(--accent, #2b6cff)', border: '1px solid var(--accent, #2b6cff)' }}
+            onClick={runDiag}
+            disabled={diagBusy}
+          >{diagBusy ? '诊断中…' : '存储诊断（持久化）'}</button>
           <input ref={fileRef} type="file" accept="application/json" style={{ display: 'none' }} onChange={importData} />
         </div>
       </div>
@@ -176,6 +191,27 @@ export default function Me({ onBack, date }) {
       </div>
 
       <div className="me-foot">—— 不枉过这一生 ——</div>
+
+      {diag && (
+        <div className="diag-mask" onClick={() => setDiag(null)}>
+          <div className="diag-box" onClick={(e) => e.stopPropagation()}>
+            <div className="diag-box__title">
+              存储诊断（持久化）
+              <span className="diag-box__close" onClick={() => setDiag(null)}>×</span>
+            </div>
+            <div className="diag-box__summary">{diag.summary}</div>
+            <div className="diag-box__lines">
+              {diag.lines.map((it, i) => (
+                <div className="diag-line" key={i}>
+                  <span className="diag-line__k">{it[0]}</span>
+                  <span className="diag-line__v">{it[1]}</span>
+                </div>
+              ))}
+            </div>
+            <div className="diag-box__tip">仅读取，未修改任何数据。截图保存即可。</div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -97,6 +97,9 @@ export default function App() {
   // 历史回顾定位：从任务栏「完整周复盘」进入时携带目标周（focusWeek），用于展开并滚动到对应条目
   const [retroFocus, setRetroFocus] = useState(null)
 
+  // 1.1.3：账本历史进入时的默认视图（exp=支出历史 / inc=收入历史 / all=全部）
+  const [ledgerScope, setLedgerScope] = useState('exp')
+
   // 手机物理返回键：在二级页按返回 -> 回「进入它的一级页面」（而非首页）
   useEffect(() => {
     window.history.replaceState({ page: 'home' }, '')
@@ -130,6 +133,10 @@ export default function App() {
     }
     if (t === 'retrospect') {
       setRetroFocus(extra && extra.focusWeek ? extra.focusWeek : null)
+    }
+    // 1.1.3：从账本栏的「支出历史 / 收入历史」按钮进入时，直接定位到对应视图
+    if (t === 'ledgerHistory') {
+      setLedgerScope(extra && extra.ledgerScope ? extra.ledgerScope : 'exp')
     }
     goTab(t)
   }
@@ -172,7 +179,7 @@ export default function App() {
           {tab === 'retrospect' && <Retrospect onBack={goBack} focusWeek={retroFocus} />}
           {tab === 'status' && <Status date={date} />}
           {tab === 'ledger' && <Ledger date={date} onNav={navigate} />}
-          {tab === 'ledgerHistory' && <LedgerHistory onBack={goBack} />}
+          {tab === 'ledgerHistory' && <LedgerHistory onBack={goBack} initialScope={ledgerScope} />}
           {tab === 'reading' && <Reading />}
           {tab === 'study' && <Study date={date} />}
           {tab === 'past' && <Past date={date} />}

@@ -88,7 +88,8 @@ function Tasks({ date, onNav }) {
   const [idea, setIdea] = useState('')
   const [ideas, setIdeas] = useState(db.getIdeas())
   useLive(() => setIdeas(db.getIdeas()))
-  const [ideaOpen, setIdeaOpen] = useState(true)
+  // 1.1.3：想做的事默认收起（避免占屏，需要时点击展开）
+  const [ideaOpen, setIdeaOpen] = useState(false)
   const [editText, setEditText] = useState('')
   const drag = useRef(null)
   const longPressTimer = useRef(null)
@@ -526,7 +527,8 @@ function Tasks({ date, onNav }) {
         </div>
         {lastWeekReview && lastWeekReview.next ? (
           <div className="wr-body">
-            <div className="wr-field"><div className="wr-label">下周重点</div><div className="wr-value">{lastWeekReview.next}</div></div>
+            {/* 1.1.3：去掉灰色「下周重点」标签，只保留内容本身 */}
+            <div className="wr-field"><div className="wr-value">{lastWeekReview.next}</div></div>
           </div>
         ) : (
           <div className="muted">上周还没有写下周重点</div>

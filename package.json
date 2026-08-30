@@ -1,15 +1,14 @@
 {
   "name": "zion-workbench",
   "private": true,
-  "version": "1.1.1",
+  "version": "1.1.3",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "node scripts/clean-assets-before-build.mjs && vite build",
     "preview": "vite preview",
     "serve": "node server.js",
-    "test": "node --test \"tests/*.test.js\"",
-    "huawei:auth": "node scripts/huawei-auth.mjs"
+    "test": "node --test \"tests/*.test.js\""
   },
   "dependencies": {
     "echarts": "^5.5.1",
