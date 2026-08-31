@@ -1236,9 +1236,10 @@ h2 { font-size: 16px; font-weight: 800; }
 /* 身体指标芯片（BMI + 体脂率）*/
 .body-metrics {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   margin-top: 10px;
-  flex-wrap: wrap;
+  /* 1.1.4：BMI 与体脂率强制同行（原先 wrap 在窄屏会折成两行） */
+  flex-wrap: nowrap;
 }
 
 /* 今日状态：两行布局（睡眠时/分+步数；卡路里+活动小时数） */
@@ -1368,10 +1369,13 @@ h2 { font-size: 16px; font-weight: 800; }
 .metric-chip {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
   border: 1.5px solid var(--line);
   border-radius: 12px;
-  padding: 9px 13px;
+  /* 1.1.4：两个 chip 各占一半、内距收紧，保证窄屏也能并排一行 */
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 8px 10px;
   background: #fafbff;
 }
 .metric-label {
@@ -1381,7 +1385,8 @@ h2 { font-size: 16px; font-weight: 800; }
   letter-spacing: 0.3px;
 }
 .metric-val {
-  font-size: 20px;
+  /* 1.1.4：20px→17px，配合紧凑 chip 保证一行放得下 */
+  font-size: 17px;
   font-weight: 800;
   line-height: 1;
 }
@@ -1389,7 +1394,7 @@ h2 { font-size: 16px; font-weight: 800; }
   font-size: 11px;
   font-weight: 800;
   color: #fff;
-  padding: 2px 8px;
+  padding: 2px 6px;
   border-radius: 50px;
 }
 .trend {
@@ -2915,14 +2920,25 @@ h2 { font-size: 16px; font-weight: 800; }
 }
 
 /* ====== 历史打卡：空备注隐藏 + 长按删除 ====== */
+/* 1.1.4：「＋备注」改为行内小按钮，放在日期与完成度之间，不单独占行 */
 .history-addnote {
-  align-self: flex-start;
   background: none;
   border: 1px dashed var(--line);
-  border-radius: 9px;
-  padding: 6px 12px;
+  border-radius: 7px;
+  padding: 1px 9px;
   font-size: 12px;
+  line-height: 1.7;
   color: var(--muted);
+  cursor: pointer;
+}
+/* 1.1.4：已保存的备注以纯文本展示（另起一行，点击进入编辑），不再是灰色文本框 */
+.history-note-text {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink);
+  padding: 3px 1px 1px;
+  word-break: break-word;
+  white-space: pre-wrap;
   cursor: pointer;
 }
 .history-row__hint {

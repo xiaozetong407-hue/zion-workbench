@@ -58,8 +58,9 @@ export default function History({ onBack }) {
       <div className="history-list">
         {rows.map(({ date: dateStr, c }) => {
           const done = items.filter((it) => !!c[it.key]).length
-          const hasNote = !!(notes[dateStr] && notes[dateStr].trim())
-          const noteOpen = editing[dateStr] || hasNote
+          const noteVal = notes[dateStr] || ''
+          const hasNote = !!noteVal.trim()
+          const isEditing = !!editing[dateStr]
           return (
             <div
               key={dateStr}
@@ -69,31 +70,41 @@ export default function History({ onBack }) {
               onPointerLeave={clearPress}
               onPointerCancel={clearPress}
             >
+              {/* 第一行：日期 +（无备注时的「＋备注」入口，行内不占行）+ 完成度 */}
               <div className="history-row__top">
                 <span className="history-row__date">{formatDateShort(dateStr)}</span>
+                {!hasNote && !isEditing && (
+                  <button
+                    className="history-addnote"
+                    onClick={() => { setEditing((p) => ({ ...p, [dateStr]: true })); setNotes((p) => ({ ...p, [dateStr]: '' })) }}
+                  >＋备注</button>
+                )}
                 <span className="history-row__count"><b>{done}</b>/{items.length}</span>
               </div>
 
-              {/* 备注：无内容时隐藏输入框，仅显示"添加备注"入口 */}
-              {noteOpen ? (
+              {/* 备注：编辑态显示输入框；非编辑态有备注时以纯文本另起一行展示，点击可再改；无备注则省略 */}
+              {isEditing ? (
                 <input
                   className="history-note"
+                  autoFocus
                   placeholder="打卡小结 / 未完成原因…"
-                  value={notes[dateStr] || ''}
+                  value={noteVal}
                   onChange={(e) => saveNote(dateStr, e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur() }}
                   onBlur={(e) => {
+                    setEditing((p) => { const n = { ...p }; delete n[dateStr]; return n })
                     if (!e.target.value.trim()) {
-                      setEditing((p) => { const n = { ...p }; delete n[dateStr]; return n })
+                      setNotes((p) => ({ ...p, [dateStr]: '' }))
                       db.setCheckIn(dateStr, { note: '' })
                     }
                   }}
                 />
-              ) : (
-                <button
-                  className="history-addnote"
-                  onClick={() => { setEditing((p) => ({ ...p, [dateStr]: true })); setNotes((p) => ({ ...p, [dateStr]: '' })) }}
-                >+ 添加备注</button>
-              )}
+              ) : hasNote ? (
+                <div
+                  className="history-note-text"
+                  onClick={() => setEditing((p) => ({ ...p, [dateStr]: true }))}
+                >{noteVal}</div>
+              ) : null}
 
               {/* 圆点可点击：直接修改某一天的打卡项 */}
               <div className="history-row__dots">

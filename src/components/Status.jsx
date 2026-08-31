@@ -99,7 +99,7 @@ export default function Status({ date }) {
   function saveStatus() {
     const f = form
     const sh = (Number(f.sleepH) || 0) + (Number(f.sleepM) || 0) / 60
-    // 1.1.3：额外存一份「整分钟」，供历史明细/平均按「X小时Y分钟」精确显示（老数据无此字段时按 sleepHours 反算）
+    // 1.1.3：额外存一份「整分钟」，供历史明细/平均按「Xh Ymin」精确显示（老数据无此字段时按 sleepHours 反算）
     const sleepMin = (Number(f.sleepH) || 0) * 60 + (Number(f.sleepM) || 0)
     db.setStatus(day, {
       sleepHours: sh ? Math.round(sh * 10) / 10 : '',

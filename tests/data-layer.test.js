@@ -163,7 +163,7 @@ test('update：正常写入 -> 落盘并可读回；副本不污染后续读取'
 test('exportData：包含版本 / 统计 / 完整业务数据', () => {
   db.ensureSeed()
   const exp = JSON.parse(db.exportData())
-  assert.equal(exp.appVersion, '1.1.3')
+  assert.equal(exp.appVersion, '1.1.4')
   assert.equal(exp.schemaVersion, 1)
   assert.ok(exp.exportTime)
   assert.ok(exp.statistics && typeof exp.statistics === 'object')
