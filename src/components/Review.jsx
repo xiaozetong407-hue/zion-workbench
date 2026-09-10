@@ -177,6 +177,11 @@ export default function Review({ date, onNav }) {
   // 刚保存完保持可见以展示成功提示（切走再回来由数据决定）
   const showWeeklyCard = isSunday || !weeklySavedInDb || weeklySaved
 
+  // ---- 1.1.6 今日任务参考：任务栏当前记录日的任务，只读展示，方便写复盘时对照 ----
+  const taskDay = db.getRecordDay('task')
+  const todayTasks = db.getTasks(taskDay)
+  const taskDoneCount = todayTasks.filter((t) => t.done).length
+
   return (
     <div className="page">
       <div className="card">
@@ -231,6 +236,30 @@ export default function Review({ date, onNav }) {
           <div className="ok">
             <svg className="ok__check" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 13l4 4 10-10" /></svg>
             已保存，明天首页将显示「明天最重要的事」
+          </div>
+        )}
+      </div>
+
+      {/* 1.1.6：今日任务（任务栏当前记录日），只读展示，写复盘时对照 */}
+      <div className="card">
+        <div className="review-head">
+          <h2>今日任务 · {mmdd(taskDay)}</h2>
+          <span className="muted" style={{ fontSize: 12 }}>
+            {todayTasks.length ? `已完成 ${taskDoneCount}/${todayTasks.length}` : '任务栏今天还没有任务'}
+          </span>
+        </div>
+        {todayTasks.length > 0 && (
+          <div className="task-list">
+            {todayTasks.map((t) => (
+              <div key={t.id} className={'task-item' + (t.done ? ' done' : '')} style={{ cursor: 'default' }}>
+                <span className="task-check" style={{ cursor: 'default' }} aria-hidden="true">
+                  {t.done && (
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4 10-10" /></svg>
+                  )}
+                </span>
+                <span className="task-title">{t.title}</span>
+              </div>
+            ))}
           </div>
         )}
       </div>
