@@ -1,0 +1,812 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>数据抢救 · 只读扫描与导出</title>
+<style>
+  :root{
+    --bg:#f4f6fa; --card:#ffffff; --line:#e3e8f0; --ink:#1f2733; --muted:#7a8699;
+    --accent:#2f6bff; --accent-bg:#eef3ff; --ok:#1f9d63; --ok-bg:#e9f8f0;
+    --warn:#b45309; --warn-bg:#fdf3e3; --err:#c62828; --err-bg:#fdecec;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.6 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
+  .wrap{max-width:760px;margin:0 auto;padding:18px 14px 60px}
+  header.top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
+  h1{font-size:18px;margin:0}
+  .sub{color:var(--muted);font-size:12px;margin-top:2px}
+  .badge{font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--accent-bg);color:var(--accent);white-space:nowrap}
+  .btn-row{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
+  button{appearance:none;border:1px solid var(--line);background:var(--card);color:var(--ink);
+    font:inherit;font-weight:600;padding:10px 16px;border-radius:10px;cursor:pointer;transition:.15s}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  button:not(:disabled):active{transform:scale(.97)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:12px 0}
+  .card h2{font-size:14px;margin:0 0 10px;display:flex;align-items:center;gap:8px}
+  .pill{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--accent-bg);color:var(--accent)}
+  .pill.ok{background:var(--ok-bg);color:var(--ok)}
+  .pill.warn{background:var(--warn-bg);color:var(--warn)}
+  .pill.err{background:var(--err-bg);color:var(--err)}
+  .notice{border-left:4px solid var(--accent);background:var(--accent-bg);padding:10px 12px;border-radius:0 10px 10px 0;font-size:13px}
+  .notice b{color:var(--accent)}
+  .warnbox{border-left:4px solid var(--warn);background:var(--warn-bg);padding:10px 12px;border-radius:0 10px 10px 0;font-size:13px}
+  details.tree{border:1px solid var(--line);border-radius:10px;margin:8px 0;background:#fbfcfe}
+  summary{padding:9px 12px;cursor:pointer;font-weight:600;font-size:13px;user-select:none;list-style:none}
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:"▸";display:inline-block;margin-right:6px;color:var(--muted);transition:.15s}
+  details[open] summary::before{transform:rotate(90deg)}
+  .tree-inner{padding:2px 12px 12px;font-family:var(--mono);font-size:12px;overflow-x:auto}
+  .kv{color:var(--muted)} .kv b{color:var(--ink);font-weight:600}
+  .rec{border-top:1px dashed var(--line);padding:6px 0;color:var(--ink);white-space:pre-wrap;word-break:break-word}
+  .rec .k{color:var(--accent)}
+  .err-txt{color:var(--err)}
+  .ok-txt{color:var(--ok)}
+  .muted{color:var(--muted)}
+  .stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:10px}
+  .stat{background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:9px 12px}
+  .stat b{display:block;font-size:17px}
+  .stat span{font-size:11px;color:var(--muted)}
+  #log{font-family:var(--mono);font-size:12px;color:var(--muted);white-space:pre-wrap;word-break:break-word;max-height:180px;overflow:auto}
+  footer{margin-top:22px;text-align:center;color:var(--muted);font-size:12px}
+  a{color:var(--accent)}
+  .dl-link{display:inline-block;text-decoration:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>数据抢救 · 只读扫描与导出</h1>
+      <div class="sub" id="originSub">本页与原工作台同源，可直接读取该 origin 的全部本地数据</div>
+    </div>
+    <span class="badge">只读模式</span>
+  </header>
+
+  <div class="notice">
+    <b>安全承诺：</b>本页面<b>只读取、不写入</b>。绝不执行 <code>deleteDatabase / clear / delete / removeItem / unregister / caches.delete</code>，
+    也不修改任何现有数据。请放心使用。
+  </div>
+
+  <div class="btn-row">
+    <button class="primary" id="btnScan">① 扫描本地数据</button>
+    <button id="btnExport" disabled>② 导出全部数据</button>
+    <button id="btnDownload" disabled class="primary">③ 下载 JSON 备份</button>
+  </div>
+
+  <div class="btn-row" style="margin-top:0">
+    <button id="btnRescan" disabled>重新扫描</button>
+    <button id="btnReexport" disabled>重新导出</button>
+  </div>
+
+  <div id="log" class="card" style="margin-top:0"></div>
+
+  <div id="result"></div>
+
+  <footer>
+    数据只存在于浏览器本地 · 扫描与导出均为只读操作 · <span id="ftTime"></span>
+  </footer>
+</div>
+
+<script>
+(function () {
+  'use strict'
+
+  // ---------------- 只读性断言：本文件不出现任何写/删 API ----------------
+  // 仅使用：localStorage 枚举读取、indexedDB.open(无版本) / transaction('readonly') /
+  // getAllKeys / get / count、caches.keys / cache.keys、getRegistrations、document.cookie
+
+  const $ = function (id) { return document.getElementById(id) }
+  const logEl = $('log')
+  const outEl = $('result')
+  const btnScan = $('btnScan'), btnExport = $('btnExport'), btnDownload = $('btnDownload'),
+        btnRescan = $('btnRescan'), btnReexport = $('btnReexport')
+  let backup = null      // 最近一次导出结果
+  let lastSummary = null // 最近一次扫描摘要
+
+  function log(msg) {
+    const t = new Date().toTimeString().slice(0, 8)
+    logEl.textContent = (t + '  ' + msg + '\n') + logEl.textContent
+    console.log('[rescue]', msg)
+  }
+  function el(tag, cls, txt) {
+    const e = document.createElement(tag)
+    if (cls) e.className = cls
+    if (txt != null) e.textContent = txt
+    return e
+  }
+
+  // ================= 安全序列化 =================
+  // 递归把任意值转成可 JSON 化的结构；特殊类型打标记；单个值失败不影响整体。
+  function bytesToBase64(bytes) {
+    let bin = ''
+    const CHUNK = 0x8000
+    for (let i = 0; i < bytes.length; i += CHUNK) {
+      bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK))
+    }
+    return btoa(bin)
+  }
+
+  async function toJSON(v, path, errors, seen) {
+    if (v === null) return null
+    if (v === undefined) return { $undef: true }
+    const t = typeof v
+    if (t === 'number' || t === 'boolean') return v
+    if (t === 'string') return v
+    if (t === 'bigint') return { $bigint: v.toString() }
+    if (t === 'function') return { $unserializable: true, type: 'function', path: path }
+    if (t === 'symbol') return { $unserializable: true, type: 'symbol', path: path }
+    if (v instanceof Date) return { $date: v.toISOString() }
+
+    // File 是 Blob 子类，优先判断拿文件名
+    if (typeof File !== 'undefined' && v instanceof File) {
+      try {
+        const buf = await v.arrayBuffer()
+        return { $file: { name: v.name, type: v.type || '', size: v.size, lastModified: v.lastModified, base64: bytesToBase64(new Uint8Array(buf)) } }
+      } catch (e) { errors.push({ path: path, type: 'File', message: String(e) }); return { $serializationError: true, type: 'File', message: String(e) } }
+    }
+    if (typeof Blob !== 'undefined' && v instanceof Blob) {
+      try {
+        const buf = await v.arrayBuffer()
+        return { $blob: { type: v.type || '', size: v.size, base64: bytesToBase64(new Uint8Array(buf)) } }
+      } catch (e) { errors.push({ path: path, type: 'Blob', message: String(e) }); return { $serializationError: true, type: 'Blob', message: String(e) } }
+    }
+    if (v instanceof ArrayBuffer) {
+      return { $arrayBuffer: bytesToBase64(new Uint8Array(v)) }
+    }
+    if (ArrayBuffer.isView(v)) {
+      return { $typedArray: { ctor: v.constructor ? v.constructor.name : 'TypedArray', base64: bytesToBase64(new Uint8Array(v.buffer, v.byteOffset, v.byteLength)) } }
+    }
+    if (typeof Map !== 'undefined' && v instanceof Map) {
+      if (seen.has(v)) return { $circular: true, path: path }
+      seen.add(v)
+      const arr = []
+      for (const [k, val] of v) {
+        arr.push({ key: await toJSON(k, path + '.key', errors, seen), value: await toJSON(val, path + '.val', errors, seen) })
+      }
+      seen.delete(v)
+      return { $map: arr }
+    }
+    if (typeof Set !== 'undefined' && v instanceof Set) {
+      if (seen.has(v)) return { $circular: true, path: path }
+      seen.add(v)
+      const arr = []
+      for (const val of v) arr.push(await toJSON(val, path + '[]', errors, seen))
+      seen.delete(v)
+      return { $set: arr }
+    }
+    if (Array.isArray(v)) {
+      if (seen.has(v)) return { $circular: true, path: path }
+      seen.add(v)
+      const arr = []
+      for (let i = 0; i < v.length; i++) {
+        try { arr.push(await toJSON(v[i], path + '[' + i + ']', errors, seen)) }
+        catch (e) { arr.push({ $serializationError: true, type: 'item', message: String(e) }); errors.push({ path: path + '[' + i + ']', type: 'item', message: String(e) }) }
+      }
+      seen.delete(v)
+      return arr
+    }
+    if (t === 'object') {
+      if (seen.has(v)) return { $circular: true, path: path }
+      seen.add(v)
+      const o = {}
+      for (const k of Object.keys(v)) {
+        try { o[k] = await toJSON(v[k], path + '.' + k, errors, seen) }
+        catch (e) { o[k] = { $serializationError: true, type: 'prop', message: String(e) }; errors.push({ path: path + '.' + k, type: 'prop', message: String(e) }) }
+      }
+      seen.delete(v)
+      return o
+    }
+    return { $unserializable: true, type: t, path: path }
+  }
+
+  // ================= IndexedDB 只读读取 =================
+  function idbReq(req) {
+    return new Promise(function (resolve, reject) {
+      req.onsuccess = function () { resolve(req.result) }
+      req.onerror = function () { reject(req.error || new Error('IndexedDB error')) }
+    })
+  }
+  async function openDb(name) {
+    return new Promise(function (resolve, reject) {
+      // 不带 version 打开：不触发 upgradeneeded，绝不修改结构
+      const req = indexedDB.open(name)
+      req.onsuccess = function () { resolve(req.result) }
+      req.onerror = function () { reject(req.error || new Error('open error: ' + name)) }
+      req.onblocked = function () { reject(new Error('DB blocked (in use)')) }
+    })
+  }
+
+  async function scanIndexedDB() {
+    if (!('indexedDB' in window)) return { unsupported: true }
+    let list
+    try { list = await indexedDB.databases() } catch (e) { return { error: 'indexedDB.databases() 不可用: ' + String(e) } }
+    const dbs = []
+    for (const info of list) {
+      const dbEntry = { name: info.name, version: info.version, stores: [] }
+      let db
+      try { db = await openDb(info.name) } catch (e) {
+        dbEntry.error = '打开失败: ' + String(e)
+        dbs.push(dbEntry); continue
+      }
+      try {
+        for (const storeName of Array.from(db.objectStoreNames)) {
+          const storeEntry = { name: storeName, keyPath: null, autoIncrement: false, indexes: [], count: 0, records: [] }
+          const tx = db.transaction(storeName, 'readonly') // 只读事务
+          const store = tx.objectStore(storeName)
+          storeEntry.keyPath = store.keyPath != null ? (Array.isArray(store.keyPath) ? store.keyPath.join(',') : String(store.keyPath)) : '(无 keyPath)'
+          storeEntry.autoIncrement = !!store.autoIncrement
+          for (const idxName of Array.from(store.indexNames)) {
+            const idx = store.index(idxName)
+            storeEntry.indexes.push({
+              name: idxName,
+              keyPath: Array.isArray(idx.keyPath) ? idx.keyPath.join(',') : String(idx.keyPath),
+              unique: !!idx.unique,
+              multiEntry: !!idx.multiEntry
+            })
+          }
+          try { storeEntry.count = await idbReq(store.count()) } catch (e) { storeEntry.countError = String(e) }
+          // 只读逐条读取（getAllKeys + get）
+          let keys = []
+          try { keys = await idbReq(store.getAllKeys()) } catch (e) { storeEntry.keysError = String(e) }
+          const errors = []
+          for (const k of keys) {
+            try {
+              const val = await idbReq(store.get(k))
+              storeEntry.records.push({ key: k, value: await toJSON(val, 'db:' + info.name + '.' + storeName, errors, new Set()) })
+            } catch (e) {
+              storeEntry.records.push({ key: k, value: { $readError: String(e) } })
+            }
+          }
+          if (errors.length) storeEntry.serializationErrors = errors
+          dbEntry.stores.push(storeEntry)
+        }
+      } catch (e) {
+        dbEntry.error = '读取 stores 失败: ' + String(e)
+      } finally {
+        try { db.close() } catch (e) { /* noop */ }
+      }
+      dbs.push(dbEntry)
+    }
+    return { databases: dbs }
+  }
+
+  // ================= Cache Storage 只读枚举 =================
+  async function scanCacheStorage() {
+    if (!('caches' in window)) return { unsupported: true }
+    let names = []
+    try { names = await caches.keys() } catch (e) { return { error: String(e) } }
+    const cachesOut = []
+    for (const name of names) {
+      const entry = { name: name, count: 0, urls: [] }
+      try {
+        const cache = await caches.open(name) // 打开已存在的 cache，不会新建
+        const reqs = await cache.keys()
+        entry.count = reqs.length
+        entry.urls = reqs.map(function (r) { return r.url }).sort()
+      } catch (e) { entry.error = String(e) }
+      cachesOut.push(entry)
+    }
+    return { caches: cachesOut }
+  }
+
+  // ================= Service Worker 只读枚举 =================
+  async function scanServiceWorkers() {
+    if (!('serviceWorker' in navigator)) return { unsupported: true }
+    try {
+      const regs = await navigator.serviceWorker.getRegistrations()
+      return {
+        count: regs.length,
+        registrations: regs.map(function (r) {
+          return {
+            scope: r.scope,
+            active: r.active ? { state: r.active.state, scriptURL: r.active.scriptURL } : null,
+            waiting: r.waiting ? { state: r.waiting.state, scriptURL: r.waiting.scriptURL } : null,
+            installing: r.installing ? { state: r.installing.state, scriptURL: r.installing.scriptURL } : null,
+            updateViaCache: r.updateViaCache || ''
+          }
+        })
+      }
+    } catch (e) { return { error: String(e) } }
+  }
+
+  // ================= localStorage 只读枚举 =================
+  function scanLocalStorage() {
+    const items = []
+    let totalBytes = 0
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i)
+        const v = localStorage.getItem(k)
+        const bytes = (k ? k.length : 0) + (v ? v.length : 0)
+        totalBytes += bytes
+        items.push({ key: k, length: v ? v.length : 0, bytes: bytes, preview: v != null ? v.slice(0, 200) : null })
+      }
+    } catch (e) {
+      return { error: String(e) }
+    }
+    return { count: items.length, totalBytes: totalBytes, items: items }
+  }
+
+  // ================= Cookie 只读 =================
+  function scanCookies() {
+    try {
+      const raw = document.cookie
+      if (!raw) return { count: 0, items: [] }
+      const items = raw.split(';').map(function (s) {
+        const p = s.trim()
+        const eq = p.indexOf('=')
+        return eq > 0 ? { name: p.slice(0, eq), value: p.slice(eq + 1) } : { name: p, value: '' }
+      }).filter(function (c) { return c.name !== '' })
+      return { count: items.length, items: items }
+    } catch (e) { return { error: String(e) } }
+  }
+
+  // ================= sessionStorage 只读 =================
+  function scanSessionStorage() {
+    const items = []
+    try {
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const k = sessionStorage.key(i)
+        items.push({ key: k, length: (sessionStorage.getItem(k) || '').length })
+      }
+    } catch (e) { return { error: String(e) } }
+    return { count: items.length, items: items }
+  }
+
+  // ================= 关键数据体检（只读：深度解析 zion-data-v1 / zion-backup-last）=================
+  function detectSeed(d) {
+    return d && d._seeded === true && Array.isArray(d.tasks) && d.tasks.some(function (t) { return t && t.id === 'seed-1' })
+  }
+  function dateRangeOf(obj) {
+    const keys = Object.keys(obj || {}).sort()
+    if (!keys.length) return null
+    return { earliest: keys[0], latest: keys[keys.length - 1], count: keys.length }
+  }
+  function inspectKey(key) {
+    let raw = null
+    try { raw = localStorage.getItem(key) } catch (e) { return { exists: false, error: String(e) } }
+    if (raw == null) return { exists: false }
+    const info = { exists: true, length: raw.length }
+    try {
+      const d = JSON.parse(raw)
+      info.parsed = true
+      info.schemaVersion = (d && d.schemaVersion != null) ? d.schemaVersion : '（无，视为 v1）'
+      info.seeded = !!(d && d._seeded)
+      info.isSeedData = detectSeed(d)
+      info.fields = d ? Object.keys(d) : []
+      info.counts = {
+        tasks: Array.isArray(d.tasks) ? d.tasks.length : '—',
+        checkIns: d.checkIns ? Object.keys(d.checkIns).length : '—',
+        reviews: d.reviews ? Object.keys(d.reviews).length : '—',
+        ledger: Array.isArray(d.ledger) ? d.ledger.length : '—',
+        status: d.status ? Object.keys(d.status).length : '—',
+        quotes: Array.isArray(d.quotes) ? d.quotes.length : '—',
+        pastReports: Array.isArray(d.pastReports) ? d.pastReports.length : '—',
+        ideas: Array.isArray(d.ideas) ? d.ideas.length : '—',
+        wereadReviews: Array.isArray(d.wereadReviews) ? d.wereadReviews.length : '—',
+      }
+      info.checkInsRange = dateRangeOf(d.checkIns)
+      info.reviewsRange = dateRangeOf(d.reviews)
+      info.tasksPreview = (Array.isArray(d.tasks) ? d.tasks : []).slice(0, 3).map(function (t) { return t ? String(t.title) : '' })
+      info.verdict = info.isSeedData
+        ? '⚠ 演示种子数据（应用重新初始化生成，非真实历史）'
+        : (info.counts.tasks !== '—' || info.counts.checkIns !== '—')
+          ? '✓ 疑似真实数据（含业务记录，非种子）'
+          : '（无法判断）'
+    } catch (e) {
+      info.parsed = false
+      info.parseError = String(e)
+    }
+    return info
+  }
+  function renderKeyHealthCard() {
+    const card = el('div', 'card')
+    card.appendChild(el('h2', '', '关键数据体检（只读深度解析）'))
+    const targets = [
+      { key: 'zion-data-v1', label: '主数据（当前使用）' },
+      { key: 'zion-backup-last', label: '导入前自动备份（若做过导入操作才存在）' },
+      { key: 'zion-last-backup-at', label: '最近导出备份时间戳（1.1.0 起）' },
+    ]
+    targets.forEach(function (t) {
+      const info = inspectKey(t.key)
+      const det = el('details', 'tree'); det.open = true
+      const statusTag = !info.exists ? '（不存在）' : (info.parsed ? '' : '（存在但无法解析 JSON）')
+      det.appendChild(el('summary', '', t.key + '  ' + statusTag + '  ·  ' + t.label))
+      const inner = el('div', 'tree-inner')
+      if (!info.exists) {
+        inner.appendChild(el('div', 'muted', '（此 key 不存在）'))
+      } else {
+        inner.appendChild(kvRow('长度', String(info.length) + ' 字符'))
+        if (!info.parsed) {
+          inner.appendChild(el('div', 'err-txt', 'JSON 解析失败: ' + (info.parseError || '')))
+        } else {
+          if (t.key === 'zion-last-backup-at') {
+            const ts = Number(localStorage.getItem(t.key))
+            inner.appendChild(kvRow('值', String(localStorage.getItem(t.key))))
+            if (ts > 0) inner.appendChild(kvRow('即时间', new Date(ts).toLocaleString()))
+          } else {
+            inner.appendChild(kvRow('判定', info.verdict, info.isSeedData ? 'err-txt' : 'ok-txt'))
+            inner.appendChild(kvRow('schemaVersion', String(info.schemaVersion)))
+            inner.appendChild(kvRow('_seeded', String(info.seeded)))
+            inner.appendChild(kvRow('顶层字段', (info.fields || []).join(', ') || '（无）'))
+            const c = info.counts
+            inner.appendChild(kvRow('记录数', 'tasks=' + c.tasks + ' · checkIns=' + c.checkIns + ' · reviews=' + c.reviews + ' · ledger=' + c.ledger + ' · status=' + c.status + ' · quotes=' + c.quotes + ' · pastReports=' + c.pastReports + ' · ideas=' + c.ideas + ' · wereadReviews=' + c.wereadReviews))
+            if (info.checkInsRange) inner.appendChild(kvRow('checkIns 日期范围', info.checkInsRange.earliest + ' ~ ' + info.checkInsRange.latest + '（' + info.checkInsRange.count + ' 天）'))
+            if (info.reviewsRange) inner.appendChild(kvRow('reviews 日期范围', info.reviewsRange.earliest + ' ~ ' + info.reviewsRange.latest + '（' + info.reviewsRange.count + ' 天）'))
+            if (info.tasksPreview && info.tasksPreview.length) inner.appendChild(kvRow('前 3 个任务', info.tasksPreview.join(' | ')))
+          }
+        }
+      }
+      det.appendChild(inner)
+      card.appendChild(det)
+    })
+    return card
+  }
+
+  // ================= 总扫描 =================
+  async function runScan() {
+    log('开始只读扫描…')
+    setBusy(true, true)
+    const result = {
+      scanTime: new Date().toISOString(),
+      origin: location.origin,
+      localStorage: scanLocalStorage(),
+      sessionStorage: scanSessionStorage(),
+      indexedDB: await scanIndexedDB(),
+      cacheStorage: await scanCacheStorage(),
+      serviceWorker: await scanServiceWorkers(),
+      cookies: scanCookies()
+    }
+    lastSummary = result
+    renderTree(result)
+    const keys = result.localStorage.items || []
+    const mainKey = keys.find(function (k) { return k.key === 'zion-data-v1' })
+    log('扫描完成：localStorage ' + (result.localStorage.count != null ? result.localStorage.count : '?') + ' 项'
+      + (mainKey ? '（找到主数据 zion-data-v1，约 ' + (mainKey.bytes / 1024).toFixed(1) + ' KB）' : ''))
+    btnExport.disabled = false
+    btnRescan.disabled = false
+    btnReexport.disabled = backup ? false : true
+    setBusy(false, true)
+  }
+
+  function setBusy(busy, keepExport) {
+    btnScan.disabled = busy
+    btnExport.disabled = busy || !lastSummary
+    btnRescan.disabled = busy || !lastSummary
+    if (!keepExport) { /* noop */ }
+    btnDownload.disabled = busy || !backup
+    btnReexport.disabled = busy || !backup
+  }
+
+  // ================= 树形渲染 =================
+  function kvRow(label, val, cls) {
+    const div = el('div', 'kv')
+    div.appendChild(el('b', '', label + ': '))
+    const s = el('span', cls || '', val)
+    div.appendChild(s)
+    return div
+  }
+
+  function renderTree(r) {
+    outEl.innerHTML = ''
+    // 关键数据体检置顶（含 zion-backup-last 深度解析）
+    outEl.appendChild(renderKeyHealthCard())
+    const card = el('div', 'card')
+    card.appendChild(el('h2', '', '扫描结果（' + (r.scanTime || '').slice(0, 19).replace('T', ' ') + '）'))
+
+    // --- localStorage ---
+    const ls = el('details', 'tree'); ls.open = true
+    const lsH = r.localStorage.items ? 'localStorage（' + r.localStorage.count + ' 项，约 ' + (r.localStorage.totalBytes / 1024).toFixed(1) + ' KB）' : 'localStorage'
+    ls.appendChild(el('summary', '', lsH))
+    const lsInner = el('div', 'tree-inner')
+    if (r.localStorage.error) lsInner.appendChild(el('div', 'err-txt', '读取失败: ' + r.localStorage.error))
+    else if (r.localStorage.count === 0) lsInner.appendChild(el('div', 'muted', '（空）'))
+    else (r.localStorage.items || []).forEach(function (it) {
+      const rec = el('div', 'rec')
+      rec.appendChild(el('span', 'k', it.key))
+      rec.appendChild(document.createTextNode('  ·  length=' + it.length + '  ·  '))
+      rec.appendChild(el('span', 'muted', JSON.stringify((it.preview != null ? it.preview : null)).slice(0, 120) + (it.length > 200 ? '…' : '')))
+      lsInner.appendChild(rec)
+    })
+    ls.appendChild(lsInner)
+    card.appendChild(ls)
+
+    // --- sessionStorage ---
+    const ss = el('details', 'tree')
+    const ssH = r.sessionStorage.items ? 'sessionStorage（' + r.sessionStorage.count + ' 项）' : 'sessionStorage'
+    ss.appendChild(el('summary', '', ssH))
+    const ssInner = el('div', 'tree-inner')
+    if (r.sessionStorage.error) ssInner.appendChild(el('div', 'err-txt', '读取失败: ' + r.sessionStorage.error))
+    else if (!r.sessionStorage.items || r.sessionStorage.count === 0) ssInner.appendChild(el('div', 'muted', '（空）'))
+    else r.sessionStorage.items.forEach(function (it) {
+      ssInner.appendChild(el('div', 'rec', it.key + '  ·  length=' + it.length))
+    })
+    ss.appendChild(ssInner)
+    card.appendChild(ss)
+
+    // --- IndexedDB ---
+    const idb = el('details', 'tree')
+    const idbH = (r.indexedDB.databases && r.indexedDB.databases.length)
+      ? 'IndexedDB（' + r.indexedDB.databases.length + ' 个数据库）' : 'IndexedDB'
+    idb.appendChild(el('summary', '', idbH))
+    const idbInner = el('div', 'tree-inner')
+    if (r.indexedDB.unsupported) idbInner.appendChild(el('div', 'muted', '此浏览器不支持 IndexedDB'))
+    else if (r.indexedDB.error) idbInner.appendChild(el('div', 'err-txt', r.indexedDB.error))
+    else if (!r.indexedDB.databases || r.indexedDB.databases.length === 0) idbInner.appendChild(el('div', 'muted', '（无数据库）'))
+    else r.indexedDB.databases.forEach(function (db) {
+      idbInner.appendChild(el('div', 'rec', '▣ 数据库: ' + db.name + '  ·  version=' + db.version))
+      if (db.error) idbInner.appendChild(el('div', 'err-txt', '  ' + db.error))
+      db.stores.forEach(function (st) {
+        idbInner.appendChild(el('div', 'rec', '   └ store: ' + st.name + '  ·  keyPath=' + st.keyPath + '  ·  autoIncrement=' + st.autoIncrement + '  ·  records=' + st.count))
+        st.indexes.forEach(function (ix) {
+          idbInner.appendChild(el('div', 'rec', '        index: ' + ix.name + '  ·  keyPath=' + ix.keyPath + '  ·  unique=' + ix.unique))
+        })
+        st.records.forEach(function (rec) {
+          const line = '          [key=' + JSON.stringify(rec.key) + '] ' + JSON.stringify(rec.value).slice(0, 160)
+          idbInner.appendChild(el('div', 'rec', line + (JSON.stringify(rec.value).length > 160 ? '…' : '')))
+        })
+        if (st.serializationErrors && st.serializationErrors.length) {
+          st.serializationErrors.forEach(function (e) {
+            idbInner.appendChild(el('div', 'err-txt', '        ⚠ 序列化失败: ' + e.path + ' - ' + e.message))
+          })
+        }
+      })
+    })
+    idb.appendChild(idbInner)
+    card.appendChild(idb)
+
+    // --- Cache Storage ---
+    const cs = el('details', 'tree')
+    const csCount = r.cacheStorage.caches ? r.cacheStorage.caches.length : 0
+    cs.appendChild(el('summary', '', 'Cache Storage（' + csCount + ' 个缓存）'))
+    const csInner = el('div', 'tree-inner')
+    if (r.cacheStorage.unsupported) csInner.appendChild(el('div', 'muted', '此浏览器不支持 Cache Storage'))
+    else if (r.cacheStorage.error) csInner.appendChild(el('div', 'err-txt', r.cacheStorage.error))
+    else if (!r.cacheStorage.caches || r.cacheStorage.caches.length === 0) csInner.appendChild(el('div', 'muted', '（无缓存）'))
+    else r.cacheStorage.caches.forEach(function (c) {
+      csInner.appendChild(el('div', 'rec', '▣ ' + c.name + '  ·  ' + c.count + ' 条'))
+      c.urls.slice(0, 50).forEach(function (u) {
+        csInner.appendChild(el('div', 'rec', '   ' + u))
+      })
+      if (c.urls.length > 50) csInner.appendChild(el('div', 'muted', '   … 其余 ' + (c.urls.length - 50) + ' 条已省略'))
+    })
+    cs.appendChild(csInner)
+    card.appendChild(cs)
+
+    // --- Service Worker ---
+    const sw = el('details', 'tree')
+    sw.appendChild(el('summary', '', 'Service Worker'))
+    const swInner = el('div', 'tree-inner')
+    if (r.serviceWorker.unsupported) swInner.appendChild(el('div', 'muted', '此浏览器不支持 Service Worker'))
+    else if (r.serviceWorker.error) swInner.appendChild(el('div', 'err-txt', r.serviceWorker.error))
+    else if (r.serviceWorker.count === 0) swInner.appendChild(el('div', 'muted', '（未注册 Service Worker）'))
+    else r.serviceWorker.registrations.forEach(function (reg) {
+      swInner.appendChild(el('div', 'rec', 'scope: ' + reg.scope))
+      swInner.appendChild(el('div', 'rec', 'updateViaCache: ' + reg.updateViaCache))
+      if (reg.active) swInner.appendChild(el('div', 'rec', 'active:   state=' + reg.active.state + '  ' + reg.active.scriptURL))
+      if (reg.waiting) swInner.appendChild(el('div', 'rec', 'waiting:  state=' + reg.waiting.state))
+      if (reg.installing) swInner.appendChild(el('div', 'rec', 'installing: state=' + reg.installing.state))
+    })
+    sw.appendChild(swInner)
+    card.appendChild(sw)
+
+    // --- Cookie ---
+    const ck = el('details', 'tree')
+    ck.appendChild(el('summary', '', 'Cookie（JS 可读部分：' + (r.cookies.count != null ? r.cookies.count : 0) + ' 个）'))
+    const ckInner = el('div', 'tree-inner')
+    if (r.cookies.error) ckInner.appendChild(el('div', 'err-txt', r.cookies.error))
+    else if (r.cookies.count === 0) ckInner.appendChild(el('div', 'muted', '（无可读 cookie）'))
+    else r.cookies.items.forEach(function (c) {
+      ckInner.appendChild(el('div', 'rec', c.name + ' = ' + c.value.slice(0, 80)))
+    })
+    ck.appendChild(ckInner)
+    card.appendChild(ck)
+
+    outEl.appendChild(card)
+
+    // --- 摘要统计 ---
+    const stats = el('div', 'stats')
+    const mk = function (label, val) {
+      const d = el('div', 'stat'); d.appendChild(el('b', '', val)); d.appendChild(el('span', '', label)); return d
+    }
+    stats.appendChild(mk('localStorage 项', r.localStorage.count != null ? String(r.localStorage.count) : '—'))
+    stats.appendChild(mk('IndexedDB 数据库', r.indexedDB.databases ? String(r.indexedDB.databases.length) : '—'))
+    const storeCount = r.indexedDB.databases ? r.indexedDB.databases.reduce(function (s, db) { return s + db.stores.length }, 0) : 0
+    stats.appendChild(mk('object store', String(storeCount)))
+    const recCount = r.indexedDB.databases ? r.indexedDB.databases.reduce(function (s, db) {
+      return s + db.stores.reduce(function (s2, st) { return s2 + st.records.length }, 0)
+    }, 0) : 0
+    stats.appendChild(mk('IndexedDB 记录', String(recCount)))
+    const csTotal = r.cacheStorage.caches ? r.cacheStorage.caches.reduce(function (s, c) { return s + (c.count || 0) }, 0) : 0
+    stats.appendChild(mk('Cache 数量', String(csCount)))
+    stats.appendChild(mk('Cache 条目', String(csTotal)))
+    stats.appendChild(mk('SW 注册数', r.serviceWorker.count != null ? String(r.serviceWorker.count) : '—'))
+    outEl.appendChild(stats)
+  }
+
+  // ================= 完整导出 =================
+  async function runExport() {
+    if (!lastSummary) { log('请先执行扫描'); return }
+    log('开始完整导出（只读）…')
+    setBusy(true)
+    const errors = []
+    const out = {
+      exportTime: new Date().toISOString(),
+      origin: location.origin,
+      localStorage: {},
+      sessionStorage: {},
+      indexedDB: { databases: [] },
+      cacheStorage: { caches: [] },
+      serviceWorker: {},
+      cookies: {}
+    }
+
+    // localStorage 完整值
+    if (lastSummary.localStorage && lastSummary.localStorage.items) {
+      lastSummary.localStorage.items.forEach(function (it) {
+        try { out.localStorage[it.key] = JSON.parse(localStorage.getItem(it.key)) }
+        catch (e) { out.localStorage[it.key] = { $stringFallback: localStorage.getItem(it.key) } }
+      })
+    }
+
+    // sessionStorage
+    if (lastSummary.sessionStorage && lastSummary.sessionStorage.items) {
+      lastSummary.sessionStorage.items.forEach(function (it) {
+        try { out.sessionStorage[it.key] = JSON.parse(sessionStorage.getItem(it.key)) }
+        catch (e) { out.sessionStorage[it.key] = sessionStorage.getItem(it.key) }
+      })
+    }
+
+    // IndexedDB 完整导出（逐记录，含特殊类型序列化）
+    if (lastSummary.indexedDB && lastSummary.indexedDB.databases) {
+      for (const info of lastSummary.indexedDB.databases) {
+        const dbOut = { name: info.name, version: info.version, stores: [] }
+        if (info.error) { dbOut.error = info.error; out.indexedDB.databases.push(dbOut); continue }
+        let db
+        try { db = await openDb(info.name) } catch (e) { dbOut.error = '打开失败: ' + String(e); out.indexedDB.databases.push(dbOut); continue }
+        try {
+          for (const storeName of Array.from(db.objectStoreNames)) {
+            const stOut = { name: storeName, keyPath: null, autoIncrement: false, indexes: [], records: [] }
+            const tx = db.transaction(storeName, 'readonly')
+            const store = tx.objectStore(storeName)
+            stOut.keyPath = store.keyPath != null ? (Array.isArray(store.keyPath) ? store.keyPath.join(',') : String(store.keyPath)) : null
+            stOut.autoIncrement = !!store.autoIncrement
+            Array.from(store.indexNames).forEach(function (idxName) {
+              const idx = store.index(idxName)
+              stOut.indexes.push({ name: idxName, keyPath: Array.isArray(idx.keyPath) ? idx.keyPath.join(',') : String(idx.keyPath), unique: !!idx.unique, multiEntry: !!idx.multiEntry })
+            })
+            let keys = []
+            try { keys = await idbReq(store.getAllKeys()) } catch (e) { stOut.readError = String(e) }
+            for (const k of keys) {
+              try {
+                const val = await idbReq(store.get(k))
+                stOut.records.push({ key: k, value: await toJSON(val, 'db:' + info.name + '.' + storeName, errors, new Set()) })
+              } catch (e) {
+                stOut.records.push({ key: k, value: { $readError: String(e) } })
+                errors.push({ path: 'db:' + info.name + '.' + storeName, type: 'read', message: String(e) })
+              }
+            }
+            dbOut.stores.push(stOut)
+          }
+        } catch (e) { dbOut.error = String(e) }
+        try { db.close() } catch (e) { /* noop */ }
+        out.indexedDB.databases.push(dbOut)
+      }
+    }
+
+    // Cache Storage（只列 URL 元信息，不导出响应体，避免备份体积爆炸；如需响应体可后续加）
+    if (lastSummary.cacheStorage && lastSummary.cacheStorage.caches) {
+      for (const c of lastSummary.cacheStorage.caches) {
+        out.cacheStorage.caches.push({ name: c.name, count: c.count, urls: c.urls, entriesExportedAsMetadata: true })
+      }
+    }
+
+    // Service Worker 元信息
+    if (lastSummary.serviceWorker) out.serviceWorker = lastSummary.serviceWorker
+
+    // Cookie 只读
+    if (lastSummary.cookies) out.cookies = lastSummary.cookies
+
+    out.summary = {
+      localStorageCount: Object.keys(out.localStorage).length,
+      indexedDBDatabases: out.indexedDB.databases.length,
+      indexedDBStores: out.indexedDB.databases.reduce(function (s, db) { return s + db.stores.length }, 0),
+      indexedDBRecords: out.indexedDB.databases.reduce(function (s, db) { return s + db.stores.reduce(function (s2, st) { return s2 + st.records.length }, 0) }, 0),
+      cacheCount: out.cacheStorage.caches.length,
+      cacheEntries: out.cacheStorage.caches.reduce(function (s, c) { return s + (c.count || 0) }, 0),
+      swCount: out.serviceWorker.count != null ? out.serviceWorker.count : 0,
+      serializationErrors: errors
+    }
+
+    backup = out
+    try {
+      const json = JSON.stringify(out)
+      const sizeKB = (json.length / 1024).toFixed(1)
+      log('导出完成：' + json.length + ' 字符（约 ' + sizeKB + ' KB），序列化错误 ' + errors.length + ' 条')
+      renderSummary(out, sizeKB)
+      btnDownload.disabled = false
+      btnReexport.disabled = false
+    } catch (e) {
+      log('JSON.stringify 失败: ' + e)
+      renderSummary(out, '?')
+      btnDownload.disabled = false // 仍允许下载（stringify 由下载时再做一次兜底）
+    }
+    setBusy(false)
+  }
+
+  function renderSummary(out, sizeKB) {
+    const s = out.summary
+    const card = el('div', 'card')
+    card.appendChild(el('h2', '', '导出验证'))
+    const stats = el('div', 'stats')
+    const mk = function (label, val) {
+      const d = el('div', 'stat'); d.appendChild(el('b', '', val)); d.appendChild(el('span', '', label)); return d
+    }
+    mk('localStorage 已导出', String(s.localStorageCount))
+    mk('IndexedDB 数据库', String(s.indexedDBDatabases))
+    mk('object store', String(s.indexedDBStores))
+    mk('IndexedDB 记录', String(s.indexedDBRecords))
+    mk('Cache 数量', String(s.cacheCount))
+    mk('Cache 条目', String(s.cacheEntries))
+    mk('SW 注册数', String(s.swCount))
+    mk('序列化失败', String(s.serializationErrors.length))
+    mk('备份大小', sizeKB + ' KB')
+    // 保留旧节点顺序展示
+    card.appendChild(stats)
+    if (s.serializationErrors && s.serializationErrors.length) {
+      const w = el('div', 'warnbox')
+      w.appendChild(el('b', '', '部分数据无法序列化（不影响其余导出）：'))
+      s.serializationErrors.slice(0, 20).forEach(function (e) {
+        w.appendChild(el('div', '', '  · ' + e.path + ' [' + e.type + '] ' + e.message))
+      })
+      card.appendChild(w)
+    }
+    outEl.appendChild(card)
+  }
+
+  // ================= 下载 =================
+  function downloadBackup() {
+    if (!backup) { log('没有可下载的备份，请先导出'); return }
+    const ts = new Date()
+    const pad = function (n) { return String(n).padStart(2, '0') }
+    const fname = 'workbuddy-backup-' +
+      ts.getFullYear() + pad(ts.getMonth() + 1) + pad(ts.getDate()) + '-' +
+      pad(ts.getHours()) + pad(ts.getMinutes()) + pad(ts.getSeconds()) + '.json'
+    let text
+    try { text = JSON.stringify(backup) }
+    catch (e) {
+      // 兜底：把可能的大值截断成字符串
+      try { text = JSON.stringify(backup, function (k, v) {
+        if (typeof v === 'string' && v.length > 2000000) return v.slice(0, 2000000) + '…[truncated]'
+        return v
+      }) } catch (e2) { log('生成备份文本失败: ' + e2); return }
+    }
+    const blob = new Blob([text], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = fname; a.className = 'dl-link'
+    document.body.appendChild(a); a.click(); a.remove()
+    setTimeout(function () { URL.revokeObjectURL(url) }, 5000)
+    log('已触发下载: ' + fname + '（' + (blob.size / 1024).toFixed(1) + ' KB）')
+  }
+
+  // ================= 事件绑定 =================
+  btnScan.addEventListener('click', runScan)
+  btnExport.addEventListener('click', runExport)
+  btnDownload.addEventListener('click', downloadBackup)
+  btnRescan.addEventListener('click', runScan)
+  btnReexport.addEventListener('click', runExport)
+
+  $('originSub').textContent = '当前 origin: ' + location.origin
+  $('ftTime').textContent = '页面加载于 ' + new Date().toLocaleString()
+
+  // 不注册任何 Service Worker、不做任何写入
+  log('页面就绪。origin=' + location.origin + '，仅只读。')
+  log('提示：如果本页被旧 Service Worker 干扰，可先试「无痕」验证渲染，但读取数据必须在普通模式本页完成。')
+})()
+</script>
+</body>
+</html>
