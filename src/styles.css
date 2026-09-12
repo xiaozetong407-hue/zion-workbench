@@ -2473,24 +2473,92 @@ h2 { font-size: 16px; font-weight: 800; }
   background: #fafbff;
   overflow: hidden;
 }
-.report-head-btn {
-  width: 100%;
+/* 1.1.7：报告头 —— 类型徽标 + 起止日期（小月大日）+ 查看按钮 */
+.report-head {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  background: none;
-  border: none;
-  padding: 11px 12px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--ink);
+  gap: 11px;
+  padding: 10px 12px;
 }
-.report-caret {
+.report-badge {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.report-badge__kind {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: .5px;
+}
+.report-badge__year {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: .3px;
+  line-height: 1;
+}
+.report-badge.is-week .report-badge__kind { background: var(--accent); box-shadow: 0 2px 8px rgba(79, 124, 255, .3); }
+.report-badge.is-month .report-badge__kind { background: var(--ok); box-shadow: 0 2px 8px rgba(39, 192, 138, .3); }
+.report-badge.is-custom .report-badge__kind { background: var(--life-orange); box-shadow: 0 2px 8px rgba(255, 152, 0, .3); }
+
+.report-dates {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.report-date {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+}
+.report-date i {
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: .4px;
+  margin-bottom: 3px;
+}
+.report-date b {
+  font-size: 21px;
+  font-weight: 800;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .5px;
+}
+.report-dates__link {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #c3cad9;
+  padding-top: 12px;
+}
+.report-view {
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  background: #fff;
   color: var(--accent);
+  border-radius: 9px;
+  padding: 6px 12px;
   font-size: 12px;
   font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
 }
+.report-view:active { background: #eef2fb; }
 .report-body {
   padding: 0 12px 12px;
   display: flex;
@@ -2556,33 +2624,207 @@ h2 { font-size: 16px; font-weight: 800; }
   line-height: 1.5;
 }
 
-/* 报告生成：日期区间选择 */
-.past-range {
+/* 报告生成：区间入口（开始/结束合并为一次选择） */
+.range-field {
+  width: 100%;
   display: flex;
+  align-items: center;
   gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: #fff;
+  padding: 10px 12px;
   margin-bottom: 10px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
 }
-.past-range__field {
+.range-field:active { background: #f6f8fc; }
+.range-field__icon {
+  flex: 0 0 auto;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+}
+.range-field__main {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
-.past-range__field span {
-  font-size: 12px;
+.range-field__label {
+  font-size: 11px;
   font-weight: 700;
   color: var(--muted);
 }
-.past-range__field input {
-  width: 100%;
-  box-sizing: border-box;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 9px 10px;
+.range-field__value {
   font-size: 14px;
+  font-weight: 800;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.range-field__days {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  background: #eef2fb;
+  border-radius: 50px;
+  padding: 3px 9px;
+}
+.range-field__caret {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  color: #c3cad9;
+}
+
+/* 1.1.7：日期区间选择器（单界面选好开始与结束） */
+.drp { display: flex; flex-direction: column; gap: 10px; }
+.drp-presets { display: flex; gap: 6px; }
+.drp-preset {
+  flex: 1;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 9px;
+  padding: 7px 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
   font-family: inherit;
+  cursor: pointer;
+}
+.drp-preset.is-active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: #eef2fb;
+}
+.drp-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.drp-nav__btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  border: 1px solid var(--line);
   background: #fff;
   color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.drp-nav__btn:active { background: #f6f8fc; }
+.drp-nav__label { font-size: 14px; font-weight: 800; color: var(--ink); }
+.drp-week { display: grid; grid-template-columns: repeat(7, 1fr); }
+.drp-week span {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  padding: 2px 0 4px;
+}
+.drp-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
+.drp-day {
+  position: relative;
+  height: 42px;
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.drp-day.is-empty { cursor: default; }
+.drp-day.is-in { background: #eef2fb; }
+/* 两端各铺半格底色，让区间条与实心圆自然衔接 */
+.drp-day.is-start::before,
+.drp-day.is-end::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: #eef2fb;
+}
+.drp-day.is-start::before { left: 50%; right: 0; }
+.drp-day.is-end::before { left: 0; right: 50%; }
+.drp-day.is-single::before { display: none; }
+.drp-day__num {
+  position: relative;
+  z-index: 1;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.drp-day.is-in .drp-day__num { color: var(--accent); }
+.drp-day.is-today .drp-day__num { box-shadow: inset 0 0 0 1.5px #cdd7ee; }
+.drp-day.is-start .drp-day__num,
+.drp-day.is-end .drp-day__num {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 800;
+  box-shadow: 0 2px 8px rgba(79, 124, 255, .34);
+}
+.drp-summary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #f6f8fc;
+  border-radius: 10px;
+  padding: 9px 10px;
+}
+.drp-summary__range {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.drp-summary__days {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  background: #eef2fb;
+  border-radius: 50px;
+  padding: 3px 9px;
+}
+.drp-summary__hint { font-size: 12px; font-weight: 700; color: var(--muted); }
+.drp-actions { display: flex; gap: 10px; }
+.drp-btn {
+  flex: 1;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  border-radius: 10px;
+  padding: 11px 0;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}
+.drp-btn:active { background: #f6f8fc; }
+.drp-btn.is-primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+.drp-btn.is-primary:disabled {
+  border-color: var(--line);
+  background: #f0f2f7;
+  color: var(--muted);
+  cursor: default;
 }
 .past-custom {
   width: 100%;
