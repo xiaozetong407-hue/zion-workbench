@@ -322,7 +322,7 @@ export default function Past({ date }) {
                     <span className="report-badge__year">{(pt || pf || {}).y || ''}</span>
                   </div>
 
-                  {/* 主体：两端日期以「小月 + 大日」排版，一眼看出几号到几号 */}
+                  {/* 主体：1.1.8 起改为「大月 + 小日」——月份一眼可见，日期作辅助 */}
                   <div className="report-dates">
                     <span className="report-date">
                       <i>{pf ? pf.m + '月' : ''}</i>

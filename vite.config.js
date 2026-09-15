@@ -51,12 +51,7 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (p) => p.replace(/^\/api\/weread/, '/api/agent/gateway'),
       },
-      // 华为运动健康 OAuth：开发态代理到生产服务器（4173，由 server.js 处理），
-      // proxy 优先级高于 Vite SPA 兜底，可正确转发 /api/huawei/*
-      '/api/huawei': {
-        target: 'http://localhost:4173',
-        changeOrigin: true,
-      },
+      // 华为运动健康 OAuth 代理已于 1.1.3 随板块移除（2026-09-13 清理）
     },
   },
 })

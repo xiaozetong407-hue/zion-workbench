@@ -2270,13 +2270,6 @@ h2 { font-size: 16px; font-weight: 800; }
   white-space: nowrap;
   max-width: 120px;
 }
-.huawei-connect {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-.huawei-connect .muted { flex: 1; min-width: 140px; }
 /* 金句搜索 */
 .quote-search {
   position: relative;
@@ -2473,7 +2466,7 @@ h2 { font-size: 16px; font-weight: 800; }
   background: #fafbff;
   overflow: hidden;
 }
-/* 1.1.7：报告头 —— 类型徽标 + 起止日期（小月大日）+ 查看按钮 */
+/* 1.1.7：报告头 —— 类型徽标 + 起止日期 + 查看按钮（1.1.8 起日期为「大月 + 小日」） */
 .report-head {
   display: flex;
   align-items: center;
@@ -2523,20 +2516,23 @@ h2 { font-size: 16px; font-weight: 800; }
   align-items: center;
   line-height: 1;
 }
+/* 1.1.8：月份为主体（大号深色，一眼看出哪个月），日期为辅助（小号浅色） */
 .report-date i {
   font-style: normal;
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--muted);
-  letter-spacing: .4px;
-  margin-bottom: 3px;
-}
-.report-date b {
-  font-size: 21px;
+  font-size: 20px;
   font-weight: 800;
   color: var(--ink);
+  letter-spacing: 0;
+  line-height: 1;
+  margin-bottom: 3px;
   font-variant-numeric: tabular-nums;
-  letter-spacing: .5px;
+}
+.report-date b {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .3px;
 }
 .report-dates__link {
   flex: 1;
@@ -2544,7 +2540,7 @@ h2 { font-size: 16px; font-weight: 800; }
   align-items: center;
   justify-content: center;
   color: #c3cad9;
-  padding-top: 12px;
+  padding-bottom: 12px;
 }
 .report-view {
   flex: 0 0 auto;
@@ -3634,3 +3630,60 @@ h2 { font-size: 16px; font-weight: 800; }
 
 /* 1.1.5 复盘保存校验失败提示 */
 .save-err { margin-top: 8px; font-size: 12px; font-weight: 600; color: #b91c1c; }
+
+/* ---- 1.1.8 每月消费：年份切换 + 12 个月柱状 + 选中月消费构成 ---- */
+.year-step { display: flex; align-items: center; gap: 4px; }
+.year-step__btn {
+  width: 24px; height: 24px; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line); background: var(--card);
+  color: var(--ink); border-radius: 7px; cursor: pointer;
+}
+.year-step__btn:disabled { opacity: .35; cursor: default; }
+.year-step__val {
+  min-width: 38px; text-align: center;
+  font-size: 12.5px; font-weight: 800; color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.mbar { display: flex; align-items: stretch; gap: 2px; height: 112px; margin: 12px 0 4px; }
+.mbar__col {
+  flex: 1; min-width: 0; padding: 0;
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  background: none; border: 0; cursor: pointer; font-family: inherit;
+}
+.mbar__track { flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; }
+.mbar__fill {
+  display: block; width: 72%; max-width: 15px;
+  border-radius: 4px 4px 2px 2px;
+  background: #dbe3f5;
+  transition: height .18s ease, background .18s ease;
+}
+.mbar__col.is-active .mbar__fill { background: var(--accent); }
+.mbar__col.is-empty .mbar__fill { background: var(--line); }
+.mbar__label { font-size: 10px; font-weight: 700; color: var(--muted); line-height: 1; }
+.mbar__col.is-active .mbar__label { color: var(--accent); }
+.mbar__foot {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  padding-top: 7px; border-top: 1px dashed var(--line);
+  font-size: 12px; font-weight: 600; color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.msum { margin-top: 11px; padding-top: 11px; border-top: 1px solid var(--line); }
+.msum__head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 8px; flex-wrap: wrap; margin-bottom: 9px;
+}
+.msum__month { font-size: 15px; font-weight: 800; color: var(--ink); }
+.msum__note { font-size: 11.5px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
+.msum__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.msum__row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.msum__tag { flex: 0 0 40px; font-weight: 700; color: var(--ink); }
+.msum__bar { flex: 1; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.msum__bar i { display: block; height: 100%; border-radius: 3px; background: var(--accent); }
+.msum__pct { flex: 0 0 30px; text-align: right; font-weight: 700; color: var(--muted); }
+.msum__amt {
+  flex: 0 0 auto; min-width: 54px; text-align: right;
+  font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums;
+}

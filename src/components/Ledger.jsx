@@ -78,6 +78,9 @@ export default function Ledger({ onNav }) {
   const day = today
   // 需求 9：概览选项卡（默认本月；本年按自然年统计）
   const [overviewTab, setOverviewTab] = useState('month')
+  // 1.1.8：每月消费 —— 选定年份的 12 个月消费变化 + 选中月明细
+  const [trendYear, setTrendYear] = useState(() => Number(yearKey(todayStr())))
+  const [trendMonth, setTrendMonth] = useState(() => Number(todayStr().slice(5, 7)))
   // 每笔记账编辑（日期 + 金额）
   const [editId, setEditId] = useState('')
   const [editDay, setEditDay] = useState('')
@@ -127,6 +130,34 @@ export default function Ledger({ onNav }) {
   const yearItems = items.filter((it) => yearKey(it.date) === year)
   const expTotalY = yearItems.filter((it) => it.type === 'exp').reduce((s, it) => s + it.amount, 0)
   const incTotalY = yearItems.filter((it) => it.type === 'inc').reduce((s, it) => s + it.amount, 0)
+
+  // ---- 1.1.8：每月消费（12 个月柱状 + 选中月明细）----
+  const thisYear = Number(year)
+  const trendYearStr = String(trendYear)
+  const trendRows = items.filter((it) => yearKey(it.date) === trendYearStr)
+  const monthly = Array.from({ length: 12 }, (_, i) => {
+    const mk = `${trendYearStr}-${String(i + 1).padStart(2, '0')}`
+    const rows = trendRows.filter((it) => monthKey(it.date) === mk)
+    const exp = rows.filter((it) => it.type === 'exp').reduce((s, it) => s + it.amount, 0)
+    const inc = rows.filter((it) => it.type === 'inc').reduce((s, it) => s + it.amount, 0)
+    return { m: i + 1, key: mk, exp, inc, count: rows.length }
+  })
+  const trendExp = monthly.reduce((s, x) => s + x.exp, 0)
+  const trendInc = monthly.reduce((s, x) => s + x.inc, 0)
+  const maxMonthExp = monthly.reduce((s, x) => Math.max(s, x.exp), 0)
+  const selMonth = monthly[trendMonth - 1] || monthly[0]
+  // 选中月按标签汇总（消费构成）
+  const selByTag = {}
+  trendRows
+    .filter((it) => it.type === 'exp' && monthKey(it.date) === selMonth.key)
+    .forEach((it) => { selByTag[it.tag] = (selByTag[it.tag] || 0) + it.amount })
+  const selTagRows = Object.entries(selByTag)
+    .map(([label, value]) => ({
+      label,
+      value,
+      pct: selMonth.exp ? Math.round((value / selMonth.exp) * 100) : 0,
+    }))
+    .sort((a, b) => b.value - a.value)
 
   // ---- 周期饼图 ----
   const periodFn = PERIODS.find((p) => p.key === piePeriod)?.fn || monthKey
@@ -252,6 +283,83 @@ export default function Ledger({ onNav }) {
         ) : (
           <p className="muted" style={{ padding: '6px 0' }}>还没有{pieType === 'inc' ? '收入' : '支出'}记录，上方记一笔开始</p>
         )}
+      </div>
+
+      {/* 1.1.8：每月消费 —— 12 个月消费变化一览，点柱子看当月消费构成 */}
+      <div className="card">
+        <div className="card-title">
+          每月消费
+          <div className="year-step">
+            <button className="year-step__btn" onClick={() => setTrendYear((y) => y - 1)} aria-label="上一年">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M14.5 5.5L8 12l6.5 6.5" />
+              </svg>
+            </button>
+            <span className="year-step__val">{trendYear}</span>
+            <button
+              className="year-step__btn"
+              onClick={() => setTrendYear((y) => y + 1)}
+              disabled={trendYear >= thisYear}
+              aria-label="下一年"
+            >
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M9.5 5.5L16 12l-6.5 6.5" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* 12 个月柱状：柱高=当月支出，选中月高亮；点柱子切换下方明细 */}
+        <div className="mbar">
+          {monthly.map((x) => {
+            const h = maxMonthExp > 0 ? Math.round((x.exp / maxMonthExp) * 100) : 0
+            const active = x.m === trendMonth
+            return (
+              <button
+                key={x.m}
+                className={'mbar__col' + (active ? ' is-active' : '') + (x.exp > 0 ? '' : ' is-empty')}
+                onClick={() => setTrendMonth(x.m)}
+                aria-label={`${x.m}月 支出 ${x.exp.toFixed(0)} 元`}
+                aria-pressed={active}
+              >
+                <span className="mbar__track">
+                  <span className="mbar__fill" style={{ height: x.exp > 0 ? Math.max(h, 6) + '%' : '3px' }} />
+                </span>
+                <span className="mbar__label">{x.m}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="mbar__foot">
+          <span>{trendYear} 年支出 ¥{trendExp.toFixed(2)}</span>
+          <span className="dot-sep">·</span>
+          <span>收入 ¥{trendInc.toFixed(2)}</span>
+        </div>
+
+        {/* 选中月消费构成 */}
+        <div className="msum">
+          <div className="msum__head">
+            <span className="msum__month">{selMonth.m}月</span>
+            <span className="msum__note">
+              支出 ¥{selMonth.exp.toFixed(2)} · 收入 ¥{selMonth.inc.toFixed(2)} · {selMonth.count} 笔
+            </span>
+          </div>
+          {selTagRows.length === 0 ? (
+            <p className="muted" style={{ padding: '2px 0 6px' }}>{selMonth.m}月还没有支出记录</p>
+          ) : (
+            <ul className="msum__list">
+              {selTagRows.map((t) => (
+                <li key={t.label} className="msum__row">
+                  <span className="msum__tag">{t.label}</span>
+                  <span className="msum__bar"><i style={{ width: Math.max(t.pct, 2) + '%' }} /></span>
+                  <span className="msum__pct">{t.pct}%</span>
+                  <span className="msum__amt">¥{t.value.toFixed(0)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
 
       {/* 记录（每日数据，全部明细见支出历史二级页） */}

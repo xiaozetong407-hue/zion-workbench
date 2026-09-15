@@ -1,11 +1,9 @@
-// 极简生产代理：托管构建产物 + 转发微信读书 API + 华为运动健康数据拉取
+// 极简生产代理：托管构建产物 + 转发微信读书 API + 双端数据同步
 // 运行：node server.js（或 npm run serve），默认端口 4173，可用 PORT 环境变量覆盖
 //
-// 华为：先 `npm run huawei:auth` 一次性授权（把 refresh_token 存到 .huawei-token.json），
-//       之后本服务 /api/huawei/data 直接用 refresh_token 拉步数/卡路里/睡眠，无需常驻回调路由。
+// 注：华为运动健康板块已于 1.1.3 从应用移除，相关代理与授权脚本一并清理（2026-09-13）。
 import http from 'node:http'
 import https from 'node:https'
-import { getValidAccessToken, fetchHealthData } from './huawei.mjs'
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
@@ -79,24 +77,6 @@ function proxyWeread(req, res) {
   })
 }
 
-// /api/huawei/data：用本地 refresh_token 换新 access_token 后拉取步数/卡路里
-async function huaweiData(res) {
-  try {
-    const access = await getValidAccessToken()
-    const r = await fetchHealthData(access)
-    res.statusCode = r.status
-    res.setHeader('Content-Type', 'application/json')
-    res.end(JSON.stringify(r.body))
-  } catch (e) {
-    const needAuth = e.message === 'NOT_AUTHORIZED'
-    res.statusCode = needAuth ? 401 : 502
-    res.setHeader('Content-Type', 'application/json')
-    res.end(JSON.stringify(needAuth
-      ? { error: 'not authorized', needAuth: true }
-      : { error: e.message }))
-  }
-}
-
 // /api/sync：双端同步。服务器持有整个 zion-data-v1 blob 的唯一真值。
 // GET -> { rev, blob }；POST { blob, rev } -> 乐观并发：rev 匹配则接受并 rev+1，
 // 否则返回 409（客户端拉取合并后重试）。无鉴权（仅本机 + 局域网个人使用，切勿暴露公网）。
@@ -143,7 +123,6 @@ function syncPost(req, res) {
 }
 
 const server = http.createServer((req, res) => {
-  if ((req.url || '').startsWith('/api/huawei')) return huaweiData(res)
   if ((req.url || '').startsWith('/api/sync')) {
     if (req.method === 'GET') return syncGet(res)
     if (req.method === 'POST') return syncPost(req, res)
@@ -166,6 +145,5 @@ server.listen(PORT, '0.0.0.0', () => {
   if (nets.length) console.log(`[zion] 手机访问（同 WiFi）: http://${nets[0]}:${PORT}`)
   console.log(`[zion] 静态目录: ${DIST}`)
   console.log(`[zion] /api/weread -> https://${WEREAD_HOST}${WEREAD_PATH}`)
-  console.log(`[zion] /api/huawei/data -> 华为运动健康（需先 npm run huawei:auth 一次性授权）`)
   console.log(`[zion] /api/sync -> 双端数据同步（仅本机/局域网，勿暴露公网）`)
 })
