@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { db } from '../store/db.js'
-import { monthKey } from '../utils/date.js'
+import { monthKey, shiftMonth, todayStr } from '../utils/date.js'
 
 const PIE_COLORS = ['#4f7cff','#27c08a','#ff9800','#7c5cff','#42a5f5','#9ccc65','#b0bec5','#ec407a','#8d6e63','#26c6da','#ab47bc','#ffd54f','#78909c','#90a4ae','#5c6bc0']
 
@@ -69,6 +69,8 @@ export default function LedgerHistory({ onBack, initialScope = 'exp' }) {
   // 1.1.3：scope 支持 exp=支出历史 / inc=收入历史 / all=全部；由账本栏按钮决定初始值
   const [scope, setScope] = useState(initialScope === 'inc' || initialScope === 'all' ? initialScope : 'exp')
   const [search, setSearch] = useState('')
+  // 1.1.9：分布图默认展示「上一个月」，并可自行选择月份（'all' = 全部时间，保留原有全量视图）
+  const [pieMonth, setPieMonth] = useState(() => shiftMonth(monthKey(todayStr()), -1))
   const [collapsed, setCollapsed] = useState({}) // 记录被「显式」折叠/展开的月份
   const [editId, setEditId] = useState('')
   const [editType, setEditType] = useState('exp')
@@ -86,13 +88,23 @@ export default function LedgerHistory({ onBack, initialScope = 'exp' }) {
   const balance = incTotal - expTotal
 
   // 1.1.3：按当前视图（支出 / 收入 / 全部）取数，供分布图与统计使用
-  const scoped =
+  const scopedAll =
     scope === 'exp' ? items.filter((it) => it.type === 'exp')
       : scope === 'inc' ? items.filter((it) => it.type === 'inc')
         : items
+  // 1.1.9：分布图再按所选月份收窄（默认上一个月；选「全部时间」= 原有的全量视图）
+  const scoped = pieMonth === 'all' ? scopedAll : scopedAll.filter((it) => monthKey(it.date) === pieMonth)
   const tagData = byTag(scoped)
   const seg = makePie(tagData, 52, 60, 60)
   const monthData = byMonth(items)
+
+  // 1.1.9：月份下拉可选项 = 有数据的月份 + 当前月 + 上月，倒序（保证默认的「上月」一定在列表里）
+  const pieMonthOpts = (() => {
+    const s = new Set(items.map((it) => monthKey(it.date)))
+    s.add(monthKey(todayStr()))
+    s.add(pieMonth === 'all' ? shiftMonth(monthKey(todayStr()), -1) : pieMonth)
+    return [...s].sort((a, b) => (a < b ? 1 : -1))
+  })()
 
   // ---- 搜索过滤 ----
   const q = search.trim().toLowerCase()
@@ -219,6 +231,24 @@ export default function LedgerHistory({ onBack, initialScope = 'exp' }) {
             <button className={'seg-btn' + (scope === 'all' ? ' active' : '')} onClick={() => setScope('all')}>全部</button>
           </div>
         </div>
+
+        {/* 1.1.9：分布图按月份查看——默认上一个月，可自行选择；「全部时间」保留原有全量视图 */}
+        <div className="lh-pie-month">
+          <span className="lh-pie-month__lbl">月份</span>
+          <select
+            className="lh-pie-month__sel"
+            value={pieMonth}
+            onChange={(e) => setPieMonth(e.target.value)}
+            aria-label="选择要查看的月份"
+          >
+            <option value="all">全部时间</option>
+            {pieMonthOpts.map((m) => {
+              const [py, pm] = m.split('-')
+              return <option key={m} value={m}>{py} 年 {Number(pm)} 月</option>
+            })}
+          </select>
+        </div>
+
         {seg.length > 0 ? (
           <div className="pie-wrap">
             <svg viewBox="0 0 120 120" width="138" height="138" aria-hidden="true">
@@ -238,7 +268,9 @@ export default function LedgerHistory({ onBack, initialScope = 'exp' }) {
             </div>
           </div>
         ) : (
-          <p className="muted" style={{ padding: '6px 0' }}>暂无{scope === 'inc' ? '收入' : '支出'}记录</p>
+          <p className="muted" style={{ padding: '6px 0' }}>
+            {pieMonth === 'all' ? '全部时间' : `${pieMonth.slice(0, 4)} 年 ${Number(pieMonth.slice(5))} 月`}暂无{scope === 'inc' ? '收入' : '支出'}记录
+          </p>
         )}
       </div>
 
@@ -250,12 +282,21 @@ export default function LedgerHistory({ onBack, initialScope = 'exp' }) {
         ) : (
           <ul className="ledger-list">
             {monthData.map((m) => (
-              <li key={m.month} className="ledger-row">
-                <span className="ledger-tag">{m.month}</span>
-                <span className="ledger-note">支出 ¥{m.exp.toFixed(0)} · 收入 ¥{m.inc.toFixed(0)}</span>
-                <span className={'ledger-amt ' + (m.inc - m.exp >= 0 ? 'amt--inc' : 'amt--exp')}>
-                  {m.inc - m.exp >= 0 ? '+' : '-'}¥{Math.abs(m.inc - m.exp).toFixed(2)}
-                </span>
+              <li key={m.month} className="lh-sum">
+                <div className="lh-sum__top">
+                  <span className="ledger-tag">{m.month}</span>
+                  <span className={'ledger-amt ' + (m.inc - m.exp >= 0 ? 'amt--inc' : 'amt--exp')}>
+                    {m.inc - m.exp >= 0 ? '+' : '-'}¥{Math.abs(m.inc - m.exp).toFixed(2)}
+                  </span>
+                </div>
+                {/* 1.1.9：支出 / 收入改为独立一行展示。
+                    原先两者挤在一个 .ledger-note 里（flex:1 + overflow:hidden + ellipsis），
+                    金额一长「收入」就被省略号截掉，故拆开并允许换行。 */}
+                <div className="lh-sum__nums">
+                  <span className="lh-sum__exp">支出 ¥{m.exp.toFixed(2)}</span>
+                  <span className="dot-sep">·</span>
+                  <span className="lh-sum__inc">收入 ¥{m.inc.toFixed(2)}</span>
+                </div>
               </li>
             ))}
           </ul>

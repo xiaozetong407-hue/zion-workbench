@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { db } from '../store/db.js'
 import { useLive } from '../store/useLive.js'
-import { monthKey, weekKey, yearKey, todayStr, mmdd } from '../utils/date.js'
+import { monthKey, weekKey, yearKey, todayStr, mmdd, shiftMonth } from '../utils/date.js'
 
 const EXP_TAGS = [
   '餐饮', '交通', '购物', '居住', '娱乐',
@@ -17,6 +17,12 @@ const PERIODS = [
   { key: 'month', label: '本月', fn: monthKey },
   { key: 'year', label: '本年', fn: yearKey },
 ]
+
+// 1.1.9：编辑时的标签候选项——若原标签不在预设列表里（历史数据），保留在最前面
+function tagOptionsFor(type, current) {
+  const base = type === 'exp' ? EXP_TAGS : INC_TAGS
+  return current && !base.includes(current) ? [current, ...base] : base
+}
 
 // 纯 SVG 扇形生成
 function makePie(data /* [{label,value}] */, r, cx, cy) {
@@ -78,13 +84,17 @@ export default function Ledger({ onNav }) {
   const day = today
   // 需求 9：概览选项卡（默认本月；本年按自然年统计）
   const [overviewTab, setOverviewTab] = useState('month')
+  // 1.1.9：概览可回看过去的月份（默认当月，「本月」按钮一键回到当月）
+  const [overviewMonth, setOverviewMonth] = useState(() => monthKey(todayStr()))
   // 1.1.8：每月消费 —— 选定年份的 12 个月消费变化 + 选中月明细
   const [trendYear, setTrendYear] = useState(() => Number(yearKey(todayStr())))
   const [trendMonth, setTrendMonth] = useState(() => Number(todayStr().slice(5, 7)))
-  // 每笔记账编辑（日期 + 金额）
+  // 每笔记账编辑（日期 + 金额 + 标签）
   const [editId, setEditId] = useState('')
   const [editDay, setEditDay] = useState('')
   const [editAmount, setEditAmount] = useState('')
+  // 1.1.9：编辑时也可修改标签（原来只能改金额和日期）
+  const [editTag, setEditTag] = useState('')
 
   const tags = type === 'exp' ? EXP_TAGS : INC_TAGS
 
@@ -95,17 +105,23 @@ export default function Ledger({ onNav }) {
     setEditId(it.id)
     setEditDay(it.date)
     setEditAmount(String(it.amount))
+    setEditTag(it.tag)
   }
   function cancelEdit() {
     setEditId('')
     setEditDay('')
     setEditAmount('')
+    setEditTag('')
   }
   function confirmEdit() {
     const amt = Number(editAmount)
     if (!amt || amt <= 0) return
     const [y, m, d] = editDay.split('-')
-    db.updateLedger(editId, { date: `${y}-${m}-${d}`, amount: amt })
+    db.updateLedger(editId, {
+      date: `${y}-${m}-${d}`,
+      amount: amt,
+      ...(editTag ? { tag: editTag } : {}),
+    })
     setItems(db.getLedger())
     cancelEdit()
   }
@@ -119,11 +135,14 @@ export default function Ledger({ onNav }) {
     setNote('')
   }
 
-  // ---- 本月收支汇总（弱化红色，用沉稳色）----
-  const month = monthKey(today)
-  const monthItems = items.filter((it) => monthKey(it.date) === month)
-  const expTotal = monthItems.filter((it) => it.type === 'exp').reduce((s, it) => s + it.amount, 0)
-  const incTotal = monthItems.filter((it) => it.type === 'inc').reduce((s, it) => s + it.amount, 0)
+  // ---- 1.1.9：概览所选月份的收支（默认当月，可用 ‹ › 回看以前的月份）----
+  // 原「本月收支汇总」（month / monthItems / expTotal / incTotal）已由 ov* 系列取代：
+  // 概览从「固定当月」升级为「可选任意月份」，当月只是其中一种选择。
+  const curMonth = monthKey(today)
+  const ovItems = items.filter((it) => monthKey(it.date) === overviewMonth)
+  const ovExp = ovItems.filter((it) => it.type === 'exp').reduce((s, it) => s + it.amount, 0)
+  const ovInc = ovItems.filter((it) => it.type === 'inc').reduce((s, it) => s + it.amount, 0)
+  const [ovYear, ovMon] = overviewMonth.split('-').map(Number)
 
   // ---- 需求 9：本年收支汇总（自然年）----
   const year = yearKey(today)
@@ -175,23 +194,51 @@ export default function Ledger({ onNav }) {
 
   return (
     <div className="page">
-      {/* 需求 9：概览（默认本月，可切本年） */}
+      {/* 需求 9：概览（默认本月，可切本年）
+          1.1.9：「本月」模式下可点 ‹ › 回看以前的月份，「本月」按钮一键跳回当月 */}
       <div className="card ledger-overview">
         <div className="card-title">
           概览
           <div className="period-tabs">
-            <button className={'chip' + (overviewTab === 'month' ? ' active' : '')} onClick={() => setOverviewTab('month')}>本月</button>
+            <button
+              className={'chip' + (overviewTab === 'month' && overviewMonth === curMonth ? ' active' : '')}
+              onClick={() => { setOverviewTab('month'); setOverviewMonth(curMonth) }}
+            >
+              本月
+            </button>
             <button className={'chip' + (overviewTab === 'year' ? ' active' : '')} onClick={() => setOverviewTab('year')}>本年</button>
           </div>
         </div>
+
+        {overviewTab === 'month' && (
+          <div className="ov-month">
+            <button className="ov-month__btn" onClick={() => setOverviewMonth((k) => shiftMonth(k, -1))} aria-label="上个月">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M14.5 5.5L8 12l6.5 6.5" />
+              </svg>
+            </button>
+            <span className="ov-month__val">{ovYear} 年 {ovMon} 月</span>
+            <button
+              className="ov-month__btn"
+              onClick={() => setOverviewMonth((k) => shiftMonth(k, 1))}
+              disabled={overviewMonth >= curMonth}
+              aria-label="下个月"
+            >
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M9.5 5.5L16 12l-6.5 6.5" />
+              </svg>
+            </button>
+          </div>
+        )}
+
         <div className="ledger-sum">
           <div className="sum-item">
             <span className="sum-label">支出</span>
-            <b className="sum-exp">¥{(overviewTab === 'year' ? expTotalY : expTotal).toFixed(2)}</b>
+            <b className="sum-exp">¥{(overviewTab === 'year' ? expTotalY : ovExp).toFixed(2)}</b>
           </div>
           <div className="sum-item">
             <span className="sum-label">收入</span>
-            <b className="sum-inc">¥{(overviewTab === 'year' ? incTotalY : incTotal).toFixed(2)}</b>
+            <b className="sum-inc">¥{(overviewTab === 'year' ? incTotalY : ovInc).toFixed(2)}</b>
           </div>
         </div>
       </div>
@@ -285,6 +332,67 @@ export default function Ledger({ onNav }) {
         )}
       </div>
 
+      {/* 记录（每日数据，全部明细见支出历史二级页）
+          1.1.9：移至「每月消费」上方（用户要求：每月消费放到最近记录下面） */}
+      <div className="card">
+        <div className="card-title">
+          最近记录
+          <span className="muted" style={{ fontWeight: 600, fontSize: 12 }}>共 {items.length} 笔</span>
+        </div>
+        {recent.length === 0 && <div className="muted">还没有记录</div>}
+        <ul className="ledger-list">
+          {recent.map((it) => {
+            if (editId === it.id) {
+              const [ey, em, ed] = (editDay || it.date).split('-')
+              const setEditDayPart = (part, val) => {
+                const m = part === 'm' ? val : em
+                const d = part === 'd' ? val : ed
+                setEditDay(`${ey}-${m}-${d}`)
+              }
+              return (
+                <li key={it.id} className="ledger-row ledger-row--edit">
+                  {/* 1.1.9：编辑时标签也可修改（原来只能改金额和日期） */}
+                  <select className="ledger-edit-tag" value={editTag} onChange={(e) => setEditTag(e.target.value)} aria-label="标签">
+                    {tagOptionsFor(it.type, editTag).map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                  <div className="ledger-edit-date">
+                    <select value={em} onChange={(e) => setEditDayPart('m', e.target.value)}>
+                      {Array.from({ length: 12 }, (_, i) => {
+                        const n = i + 1
+                        const v = String(n).padStart(2, '0')
+                        return <option key={v} value={v}>{n}月</option>
+                      })}
+                    </select>
+                    <select value={ed} onChange={(e) => setEditDayPart('d', e.target.value)}>
+                      {Array.from({ length: 31 }, (_, i) => {
+                        const n = i + 1
+                        const v = String(n).padStart(2, '0')
+                        return <option key={v} value={v}>{n}日</option>
+                      })}
+                    </select>
+                  </div>
+                  <input className="ledger-edit-amt" type="number" min="0" step="0.01" value={editAmount} onChange={(e) => setEditAmount(e.target.value)} />
+                  <button className="ledger-edit-ok" onClick={confirmEdit}>确定</button>
+                  <button className="ledger-edit-cancel" onClick={cancelEdit}>取消</button>
+                </li>
+              )
+            }
+            return (
+              <li key={it.id} className="ledger-row">
+                <span className={'ledger-tag tag--' + it.type}>{it.tag}</span>
+                <span className="ledger-date">{mmdd(it.date)}</span>
+                <span className="ledger-note">{it.note || '—'}</span>
+                <span className={'ledger-amt amt--' + it.type}>{it.type === 'exp' ? '-' : '+'}{it.amount.toFixed(2)}</span>
+                <button className="ledger-edit" onClick={() => startEdit(it)}>编辑</button>
+                <button className="ledger-del" onClick={() => { db.deleteLedger(it.id); setItems(db.getLedger()) }}>×</button>
+              </li>
+            )
+          })}
+        </ul>
+      </div>
+
       {/* 1.1.8：每月消费 —— 12 个月消费变化一览，点柱子看当月消费构成 */}
       <div className="card">
         <div className="card-title">
@@ -360,60 +468,6 @@ export default function Ledger({ onNav }) {
             </ul>
           )}
         </div>
-      </div>
-
-      {/* 记录（每日数据，全部明细见支出历史二级页） */}
-      <div className="card">
-        <div className="card-title">
-          最近记录
-          <span className="muted" style={{ fontWeight: 600, fontSize: 12 }}>共 {items.length} 笔</span>
-        </div>
-        {recent.length === 0 && <div className="muted">还没有记录</div>}
-        <ul className="ledger-list">
-          {recent.map((it) => {
-            if (editId === it.id) {
-              const [ey, em, ed] = (editDay || it.date).split('-')
-              const setEditDayPart = (part, val) => {
-                const m = part === 'm' ? val : em
-                const d = part === 'd' ? val : ed
-                setEditDay(`${ey}-${m}-${d}`)
-              }
-              return (
-                <li key={it.id} className="ledger-row ledger-row--edit">
-                  <div className="ledger-edit-date">
-                    <select value={em} onChange={(e) => setEditDayPart('m', e.target.value)}>
-                      {Array.from({ length: 12 }, (_, i) => {
-                        const n = i + 1
-                        const v = String(n).padStart(2, '0')
-                        return <option key={v} value={v}>{n}月</option>
-                      })}
-                    </select>
-                    <select value={ed} onChange={(e) => setEditDayPart('d', e.target.value)}>
-                      {Array.from({ length: 31 }, (_, i) => {
-                        const n = i + 1
-                        const v = String(n).padStart(2, '0')
-                        return <option key={v} value={v}>{n}日</option>
-                      })}
-                    </select>
-                  </div>
-                  <input className="ledger-edit-amt" type="number" min="0" step="0.01" value={editAmount} onChange={(e) => setEditAmount(e.target.value)} />
-                  <button className="ledger-edit-ok" onClick={confirmEdit}>确定</button>
-                  <button className="ledger-edit-cancel" onClick={cancelEdit}>取消</button>
-                </li>
-              )
-            }
-            return (
-              <li key={it.id} className="ledger-row">
-                <span className={'ledger-tag tag--' + it.type}>{it.tag}</span>
-                <span className="ledger-date">{mmdd(it.date)}</span>
-                <span className="ledger-note">{it.note || '—'}</span>
-                <span className={'ledger-amt amt--' + it.type}>{it.type === 'exp' ? '-' : '+'}{it.amount.toFixed(2)}</span>
-                <button className="ledger-edit" onClick={() => startEdit(it)}>编辑</button>
-                <button className="ledger-del" onClick={() => { db.deleteLedger(it.id); setItems(db.getLedger()) }}>×</button>
-              </li>
-            )
-          })}
-        </ul>
       </div>
     </div>
   )

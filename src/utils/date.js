@@ -124,6 +124,13 @@ export function monthKey(dateStr = todayStr()) {
   return dateStr.slice(0, 7)
 }
 
+// 月份偏移：key 形如 'YYYY-MM'，delta 为 ±N 个月（1.1.9 起共用，供账本回看历史月份）
+export function shiftMonth(key, delta) {
+  const [y, m] = key.split('-').map(Number)
+  const d = new Date(y, m - 1 + delta, 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
 // YYYY（年周期键）
 export function yearKey(dateStr = todayStr()) {
   return String(new Date(dateStr + 'T00:00:00').getFullYear())

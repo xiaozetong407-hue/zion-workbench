@@ -3687,3 +3687,96 @@ h2 { font-size: 16px; font-weight: 800; }
   flex: 0 0 auto; min-width: 54px; text-align: right;
   font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums;
 }
+
+/* ===== 1.1.9 账本：概览月份切换 / 编辑标签 / 分布月份选择 / 按月汇总排版 ===== */
+
+/* 概览：回看过去月份的 ‹ 年 月 › 切换器 */
+.ov-month {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 10px 0 2px;
+}
+.ov-month__btn {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.ov-month__btn:disabled { opacity: .35; cursor: default; }
+.ov-month__val {
+  min-width: 96px;
+  text-align: center;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 最近记录编辑态：标签下拉（原来只能改金额和日期） */
+.ledger-edit-tag {
+  flex: 0 1 auto;
+  min-width: 76px;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 8px;
+  padding: 6px 4px;
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+/* 支出历史：分布图月份选择 */
+.lh-pie-month {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 2px;
+}
+.lh-pie-month__lbl {
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.lh-pie-month__sel {
+  flex: 1 1 auto;
+  min-width: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+/* 支出历史：按月汇总——支出/收入各占一行，避免被省略号截断 */
+.lh-sum { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.lh-sum__top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.lh-sum__nums {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.lh-sum__exp { color: var(--ink); }
+.lh-sum__inc { color: var(--ok); }

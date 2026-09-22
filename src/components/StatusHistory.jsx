@@ -6,7 +6,7 @@ import Modal from './Modal.jsx'
 const W = 320
 const PAD = 14
 const BLOCK_TOP0 = 34
-const BLOCK_STEP = 98
+const BLOCK_STEP = 106 // 1.1.9：由 98 加大，给柱状图基线下方的日期刻度留出空间
 const CH = 72 // 单图高度
 const COLORS_STYLE = `
   .w-line{fill:none;stroke:#4f7cff;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
@@ -61,7 +61,7 @@ function LineBlock({ top, title, pts, cls }) {
   )
 }
 
-function BarBlock({ top, title, pts, cls, unit }) {
+function BarBlock({ top, title, pts, cls }) {
   const n = pts.length
   if (n === 0) {
     return (
@@ -76,9 +76,13 @@ function BarBlock({ top, title, pts, cls, unit }) {
   const slot = (W - 2 * PAD) / n
   const bw = Math.min(slot * 0.6, 18)
   const baseY = top + 18 + CH
+  const last = pts[n - 1]
+  // 柱子较多时逐根标注数字会互相叠压，此时只在右上角显示最新值
+  const showVal = n <= 12
   return (
     <g>
       <text x={PAD} y={top + 12} className="ttl">{title}</text>
+      {!showVal && <text x={W - PAD} y={top + 12} className="lbl-r">{last.v}</text>}
       <line x1={PAD} y1={baseY} x2={W - PAD} y2={baseY} className="ax" />
       {pts.map((p, i) => {
         const h = (p.v / max) * CH
@@ -87,10 +91,13 @@ function BarBlock({ top, title, pts, cls, unit }) {
         return (
           <g key={i}>
             <rect className={cls} x={x} y={y} width={bw} height={Math.max(h, 1)} rx={2} />
-            <text x={x + bw / 2} y={y - 2} className="val" textAnchor="middle">{p.label}</text>
+            {showVal && <text x={x + bw / 2} y={y - 3} className="val" textAnchor="middle">{p.v}</text>}
           </g>
         )
       })}
+      {/* 横轴起止日期：柱子需要时间坐标才看得懂（放在基线下方，避开柱体） */}
+      <text x={PAD} y={baseY + 10} className="lbl">{pts[0].label}</text>
+      <text x={W - PAD} y={baseY + 10} className="lbl-r">{last.label}</text>
     </g>
   )
 }
@@ -361,11 +368,12 @@ export default function StatusHistory({ onClose }) {
   }
 
   const blocks = []
-  // 需求 7：体重/BMI 变化缓慢不绘制；仅保留 步数/卡路里/睡眠/活动 折线图（活动单位为小时）
-  blocks.push({ type: 'line', title: '步数', pts: data.steps, cls: 's-line' })
-  blocks.push({ type: 'line', title: '卡路里 (kcal)', pts: data.calories, cls: 'c-line' })
-  blocks.push({ type: 'line', title: '睡眠 (小时)', pts: data.sleep, cls: 'sl-line' })
-  blocks.push({ type: 'line', title: '活动 (小时)', pts: data.exercise, cls: 'ex-line' })
+  // 需求 7：体重/BMI 变化缓慢不绘制；仅保留 步数/卡路里/睡眠/活动（活动单位为小时）
+  // 1.1.9：四张图由折线图改为柱状图（用户要求），配色沿用原 token
+  blocks.push({ type: 'bar', title: '步数', pts: data.steps, cls: 'bar-s' })
+  blocks.push({ type: 'bar', title: '卡路里 (kcal)', pts: data.calories, cls: 'bar-c' })
+  blocks.push({ type: 'bar', title: '睡眠 (小时)', pts: data.sleep, cls: 'bar-sl' })
+  blocks.push({ type: 'bar', title: '活动 (小时)', pts: data.exercise, cls: 'bar-ex' })
   const H = BLOCK_TOP0 + blocks.length * BLOCK_STEP + 6
 
   return (

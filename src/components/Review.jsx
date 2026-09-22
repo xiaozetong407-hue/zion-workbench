@@ -177,8 +177,10 @@ export default function Review({ date, onNav }) {
   // 刚保存完保持可见以展示成功提示（切走再回来由数据决定）
   const showWeeklyCard = isSunday || !weeklySavedInDb || weeklySaved
 
-  // ---- 1.1.6 今日任务参考：任务栏当前记录日的任务，只读展示，方便写复盘时对照 ----
-  const taskDay = db.getRecordDay('task')
+  // ---- 1.1.6 今日任务参考：只读展示，方便写复盘时对照 ----
+  // 1.1.9：改为跟随「正在复盘的这一天」（day），不再跟随任务栏自己的记录日，
+  //        避免任务栏天数推进后，这里显示的任务与所写复盘不是同一天。
+  const taskDay = day
   const todayTasks = db.getTasks(taskDay)
   const taskDoneCount = todayTasks.filter((t) => t.done).length
 

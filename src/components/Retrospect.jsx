@@ -227,6 +227,47 @@ function PlanRow({ title, text, open, onToggle, anchor }) {
   )
 }
 
+// 周复盘单行：默认收起（标题 + a 段一行预览），展开后 a / b / c 三段「分行 + 小标题」展示
+// 1.1.9：收起态预览原来是把三段用「·」拼成一行，难读；改为只显示 a 段。
+//        展开态则三段各占一行、各带标签，彻底不用「·」做分隔。
+function WeeklyRow({ item, open, onToggle, anchor }) {
+  const w = item.w || {}
+  const first = w.advanced || w.issue || w.next || ''
+  const raw = String(first).replace(/\s+/g, ' ').trim()
+  const preview = raw.length > 50 ? raw.slice(0, 50) + '…' : raw
+  return (
+    <div className={'retro-row retro-row--plan' + (open ? ' is-open' : '')} data-anchor={anchor}>
+      <button className="retro-row__head" onClick={onToggle}>
+        <div className="retro-row__main">
+          <div className="retro-row__title">{item.title}</div>
+          {!open && (
+            <div className="retro-row__text">
+              {raw ? preview : <span className="muted">未填写</span>}
+            </div>
+          )}
+        </div>
+        <Caret open={open} />
+      </button>
+      {open && (
+        <div className="retro-row__detail">
+          <div className="dr-field">
+            <div className="dr-label">a. 本周推进了什么内容？</div>
+            <div className="dr-value">{w.advanced || <span className="muted">未填写</span>}</div>
+          </div>
+          <div className="dr-field">
+            <div className="dr-label">b. 没做好 / 分心的事</div>
+            <div className="dr-value">{w.issue || <span className="muted">未填写</span>}</div>
+          </div>
+          <div className="dr-field">
+            <div className="dr-label">c. 下周重推进什么事？</div>
+            <div className="dr-value">{w.next || <span className="muted">未填写</span>}</div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // 计划卡片（标题 + 计数 + 空态 + 可单独收起的计划列表）
 // anchorPrefix：若提供，则为每条渲染 data-anchor = anchorPrefix + item.key
 function PlanCard({ title, list, openMap, onToggle, anchorPrefix }) {
@@ -294,13 +335,18 @@ export default function Retrospect({ onBack, focusWeek }) {
   const [openMonths, setOpenMonths] = useState(() => ({}))
   // 0.32.1 定位：若从任务栏「完整周复盘」带 focusWeek 进入，初始展开对应那条周复盘
   const [openPlans, setOpenPlans] = useState(() => (focusWeek ? { ['week:' + focusWeek]: true } : {}))
+  // 1.1.9：周复盘的 年 / 月 收起状态独立于每日复盘，互不干扰；默认全部收起
+  const [openWYears, setOpenWYears] = useState(() => ({}))
+  const [openWMonths, setOpenWMonths] = useState(() => ({}))
   const [gamePeriod, setGamePeriod] = useState('week') // 'week' | 'month' | 'year'
 
-  // 定位：聚焦到指定周复盘条目（展开 + 滚动到可视区）
+  // 定位：聚焦到指定周复盘条目（展开所在年/月 + 展开该条 + 滚动到可视区）
   useEffect(() => {
     if (!focusWeek) return
     const anchor = 'week:' + focusWeek
     setOpenPlans((p) => ({ ...p, [anchor]: true }))
+    setOpenWYears((p) => ({ ...p, [focusWeek.slice(0, 4)]: true }))
+    setOpenWMonths((p) => ({ ...p, [focusWeek.slice(0, 7)]: true }))
     const t = setTimeout(() => {
       const el = document.querySelector('[data-anchor="' + anchor + '"]')
       if (el && el.scrollIntoView) {
@@ -339,7 +385,8 @@ export default function Retrospect({ onBack, focusWeek }) {
     .filter((i) => matchQuery(i.title, i.text, q))
 
   // ---- 需求 4：独立周复盘（数据源=每日复盘里周日填写的 weekly 字段，零冗余）----
-  // 0.32.1：每条周复盘独立收起/展开（默认收起），复用 PlanRow 的可收起交互
+  // 0.32.1：每条周复盘独立收起/展开（默认收起），复用可收起交互
+  // 1.1.9：携带原始 weekly 对象（供展开后分行展示），并补 年 -> 月 分组
   const weeklyList = dailyList
     .filter((it) => it.o && it.o.weekly)
     .map((it) => {
@@ -347,9 +394,11 @@ export default function Retrospect({ onBack, focusWeek }) {
       const mon = addDays(it.key, -6)
       const title = `周复盘 · ${mmdd(mon)} ~ ${mmdd(it.key)}`
       const text = [w.advanced, w.issue, w.next].filter(Boolean).join(' · ')
-      return { key: it.key, title, text: text || '未填写', pk: 'week:' + it.key }
+      return { key: it.key, title, text: text || '未填写', w, pk: 'week:' + it.key }
     })
     .filter((i) => matchQuery(i.title, i.text, q))
+  // 1.1.9：周复盘按 年 -> 月 分组，与每日复盘一致的可收起结构
+  const weeklyGroups = groupByYearMonth(weeklyList)
   const planMonthList = toList(plansMonth, (k) => planTitle('month', k))
     .map((i) => ({ ...i, text: i.text, pk: 'month:' + i.key }))
     .filter((i) => matchQuery(i.title, planText(i.text), q))
@@ -363,6 +412,9 @@ export default function Retrospect({ onBack, focusWeek }) {
   function toggleYear(y) { setOpenYears((p) => ({ ...p, [y]: !p[y] })) }
   function toggleMonth(m) { setOpenMonths((p) => ({ ...p, [m]: !p[m] })) }
   function togglePlan(pk) { setOpenPlans((p) => ({ ...p, [pk]: !p[pk] })) }
+  // 1.1.9：周复盘自己的 年 / 月 收起开关
+  function toggleWYear(y) { setOpenWYears((p) => ({ ...p, [y]: !p[y] })) }
+  function toggleWMonth(m) { setOpenWMonths((p) => ({ ...p, [m]: !p[m] })) }
 
   function saveEdit() {
     if (!editItem) return
@@ -472,8 +524,60 @@ export default function Retrospect({ onBack, focusWeek }) {
         )}
       </div>
 
-      {/* 需求 4：独立周复盘（数据源=周日复盘的 weekly 字段；0.32.1 起每条默认收起、点击展开） */}
-      <PlanCard title="周复盘" list={weeklyList} openMap={openPlans} onToggle={togglePlan} anchorPrefix="week:" />
+      {/* 需求 4：独立周复盘（数据源=周日复盘的 weekly 字段）
+          0.32.1 起每条默认收起、点击展开；1.1.9 起按 年 -> 月 分组收起，展开后 a/b/c 分行展示 */}
+      <div className="card retro-section">
+        <div className="card-title">周复盘{weeklyList.length ? ` · ${weeklyList.length}` : ''}</div>
+        {weeklyList.length === 0 ? (
+          <div className="muted">{q ? '没有匹配的内容' : '还没有任何周复盘记录'}</div>
+        ) : (
+          <div className="retro-groups">
+            {weeklyGroups.map((y) => {
+              const yOpen = openWYears[y.year] || searching
+              const yCount = y.months.reduce((s, m) => s + m.items.length, 0)
+              return (
+                <div className="retro-year" key={y.year}>
+                  <button className="retro-group__head" onClick={() => toggleWYear(y.year)}>
+                    <span className="retro-group__title">{y.year} 年</span>
+                    <span className="retro-group__count">{yCount} 篇</span>
+                    <Caret open={yOpen} />
+                  </button>
+                  {yOpen && (
+                    <div className="retro-year__body">
+                      {y.months.map((m) => {
+                        const mOpen = openWMonths[m.month] || searching
+                        const mm = Number(m.month.slice(5))
+                        return (
+                          <div className="retro-month" key={m.month}>
+                            <button className="retro-group__head retro-group__head--sub" onClick={() => toggleWMonth(m.month)}>
+                              <span className="retro-group__title">{mm} 月</span>
+                              <span className="retro-group__count">{m.items.length} 篇</span>
+                              <Caret open={mOpen} />
+                            </button>
+                            {mOpen && (
+                              <div className="retro-list">
+                                {m.items.map((it) => (
+                                  <WeeklyRow
+                                    key={it.pk}
+                                    item={it}
+                                    open={!!openPlans[it.pk]}
+                                    onToggle={() => togglePlan(it.pk)}
+                                    anchor={it.pk}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
 
       {/* 月复盘 / 年复盘 跟随 */}
       <Section title="月复盘" emptyText="还没有任何月度复盘记录" list={monthList} />
