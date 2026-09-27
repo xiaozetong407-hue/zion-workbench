@@ -29,10 +29,11 @@ function makePie(data, r, cx, cy) {
   })
 }
 
-// 按标签汇总
+// 按标签汇总（1.1.10：不再硬过滤 type==='exp'，由上层 scoped 按当前 scope 收窄决定取数范围，
+// 切到「收入 / 全部」时收入标签也能正常进饼图）
 function byTag(items) {
   const m = {}
-  items.filter((it) => it.type === 'exp').forEach((it) => {
+  items.forEach((it) => {
     m[it.tag] = (m[it.tag] || 0) + it.amount
   })
   return Object.entries(m).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value)
@@ -72,6 +73,7 @@ export default function LedgerHistory({ onBack, initialScope = 'exp' }) {
   // 1.1.9：分布图默认展示「上一个月」，并可自行选择月份（'all' = 全部时间，保留原有全量视图）
   const [pieMonth, setPieMonth] = useState(() => shiftMonth(monthKey(todayStr()), -1))
   const [collapsed, setCollapsed] = useState({}) // 记录被「显式」折叠/展开的月份
+  const [yearCollapsed, setYearCollapsed] = useState({}) // 按月汇总：年的折叠状态（默认仅最新年展开）
   const [editId, setEditId] = useState('')
   const [editType, setEditType] = useState('exp')
   const [editTag, setEditTag] = useState(EXP_TAGS[0])
@@ -97,6 +99,15 @@ export default function LedgerHistory({ onBack, initialScope = 'exp' }) {
   const tagData = byTag(scoped)
   const seg = makePie(tagData, 52, 60, 60)
   const monthData = byMonth(items)
+  // 1.1.10：按月汇总按年分组（两级收起：年可折叠，默认仅最新年展开）
+  const yearGroups = (() => {
+    const map = {}
+    monthData.forEach((m) => {
+      const y = m.month.slice(0, 4)
+      ;(map[y] = map[y] || []).push(m)
+    })
+    return Object.keys(map).sort((a, b) => (a < b ? 1 : -1)).map((y) => ({ year: y, months: map[y] }))
+  })()
 
   // 1.1.9：月份下拉可选项 = 有数据的月份 + 当前月 + 上月，倒序（保证默认的「上月」一定在列表里）
   const pieMonthOpts = (() => {
@@ -110,7 +121,7 @@ export default function LedgerHistory({ onBack, initialScope = 'exp' }) {
   const q = search.trim().toLowerCase()
   const filtered = q
     ? items.filter((it) => {
-        const hay = [it.tag, it.note || '', it.type === 'exp' ? '支出' : '收入', it.date, it.amount.toFixed(2)].join(' ').toLowerCase()
+        const hay = [it.tag, it.note || '', it.type === 'exp' ? '支出' : '收入', it.amount.toFixed(2)].join(' ').toLowerCase()
         return hay.includes(q)
       })
     : items
@@ -147,6 +158,18 @@ export default function LedgerHistory({ onBack, initialScope = 'exp' }) {
     const nc = {}
     groups.forEach((g) => { nc[g.month] = allOpen }) // 全开 -> 全部折叠；否则全部展开
     setCollapsed(nc)
+  }
+
+  // 按月汇总：年折叠（默认仅最新年展开；用户手动状态优先）
+  const latestYear = yearGroups.length ? yearGroups[0].year : null
+  function isYearOpen(year) {
+    if (yearCollapsed[year] === true) return false
+    if (yearCollapsed[year] === false) return true
+    return year === latestYear
+  }
+  function toggleYear(year) {
+    const cur = isYearOpen(year)
+    setYearCollapsed((prev) => ({ ...prev, [year]: cur }))
   }
 
   // ---- 行内编辑（与最近记录共用同一 db，修改即时双向同步）----
@@ -269,37 +292,59 @@ export default function LedgerHistory({ onBack, initialScope = 'exp' }) {
           </div>
         ) : (
           <p className="muted" style={{ padding: '6px 0' }}>
-            {pieMonth === 'all' ? '全部时间' : `${pieMonth.slice(0, 4)} 年 ${Number(pieMonth.slice(5))} 月`}暂无{scope === 'inc' ? '收入' : '支出'}记录
+            {pieMonth === 'all' ? '全部时间' : `${pieMonth.slice(0, 4)} 年 ${Number(pieMonth.slice(5))} 月`}暂无{scope === 'inc' ? '收入' : scope === 'all' ? '收支' : '支出'}记录
           </p>
         )}
       </div>
 
-      {/* 按月汇总 */}
+      {/* 按月汇总：按年分组、年可收起（默认仅最新年展开） */}
       <div className="card">
         <div className="card-title">按月汇总</div>
-        {monthData.length === 0 ? (
+        {yearGroups.length === 0 ? (
           <div className="muted">暂无数据</div>
         ) : (
-          <ul className="ledger-list">
-            {monthData.map((m) => (
-              <li key={m.month} className="lh-sum">
-                <div className="lh-sum__top">
-                  <span className="ledger-tag">{m.month}</span>
-                  <span className={'ledger-amt ' + (m.inc - m.exp >= 0 ? 'amt--inc' : 'amt--exp')}>
-                    {m.inc - m.exp >= 0 ? '+' : '-'}¥{Math.abs(m.inc - m.exp).toFixed(2)}
-                  </span>
+          <div className="lh-years">
+            {yearGroups.map((yg) => {
+              const yOpen = isYearOpen(yg.year)
+              const yExp = yg.months.reduce((s, m) => s + m.exp, 0)
+              const yInc = yg.months.reduce((s, m) => s + m.inc, 0)
+              return (
+                <div className={'lh-month' + (yOpen ? ' open' : '')} key={yg.year}>
+                  <button className="lh-month__head" onClick={() => toggleYear(yg.year)}>
+                    <span className="lh-month__caret"><CaretIcon open={yOpen} /></span>
+                    <span className="lh-month__name">{yg.year} 年</span>
+                    <span className="lh-month__count">{yg.months.length} 月</span>
+                    <span className={'lh-month__amt ' + (yInc - yExp >= 0 ? 'pos' : 'neg')}>
+                      {yInc - yExp >= 0 ? '+' : '-'}¥{Math.abs(yInc - yExp).toFixed(0)}
+                    </span>
+                  </button>
+                  {yOpen && (
+                    <ul className="ledger-list lh-month__body">
+                      {yg.months.map((m) => {
+                        const [my, mm] = m.month.split('-')
+                        return (
+                          <li key={m.month} className="lh-sum">
+                            <div className="lh-sum__top">
+                              <span className="ledger-tag">{Number(mm)}月</span>
+                              <span className={'ledger-amt ' + (m.inc - m.exp >= 0 ? 'amt--inc' : 'amt--exp')}>
+                                {m.inc - m.exp >= 0 ? '+' : '-'}¥{Math.abs(m.inc - m.exp).toFixed(2)}
+                              </span>
+                            </div>
+                            {/* 1.1.9：支出 / 收入改为独立一行展示。 */}
+                            <div className="lh-sum__nums">
+                              <span className="lh-sum__exp">支出 ¥{m.exp.toFixed(2)}</span>
+                              <span className="dot-sep">·</span>
+                              <span className="lh-sum__inc">收入 ¥{m.inc.toFixed(2)}</span>
+                            </div>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  )}
                 </div>
-                {/* 1.1.9：支出 / 收入改为独立一行展示。
-                    原先两者挤在一个 .ledger-note 里（flex:1 + overflow:hidden + ellipsis），
-                    金额一长「收入」就被省略号截掉，故拆开并允许换行。 */}
-                <div className="lh-sum__nums">
-                  <span className="lh-sum__exp">支出 ¥{m.exp.toFixed(2)}</span>
-                  <span className="dot-sep">·</span>
-                  <span className="lh-sum__inc">收入 ¥{m.inc.toFixed(2)}</span>
-                </div>
-              </li>
-            ))}
-          </ul>
+              )
+            })}
+          </div>
         )}
       </div>
 
@@ -314,7 +359,7 @@ export default function LedgerHistory({ onBack, initialScope = 'exp' }) {
         <input
           className="lh-search"
           type="text"
-          placeholder="搜索备注 / 标签 / 金额 / 日期"
+          placeholder="搜索备注 / 标签 / 金额"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />

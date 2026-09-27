@@ -88,9 +88,10 @@ function Tasks({ date, onNav }) {
   const [idea, setIdea] = useState('')
   const [ideas, setIdeas] = useState(db.getIdeas())
   useLive(() => setIdeas(db.getIdeas()))
-  // 1.1.3：想做的事默认收起（避免占屏，需要时点击展开）
-  const [ideaOpen, setIdeaOpen] = useState(false)
+  // 1.1.10：想做的事常驻展开，改为行内 chip；长按 chip 弹编辑/删除菜单
   const [editText, setEditText] = useState('')
+  const [menuIdea, setMenuIdea] = useState(null) // 长按选中的想法
+  const ideaPress = useRef(null)
   const drag = useRef(null)
   const longPressTimer = useRef(null)
   const listRef = useRef(null)
@@ -229,9 +230,58 @@ function Tasks({ date, onNav }) {
     setIdeas(db.getIdeas())
   }
 
-  function handleDeleteIdea(id) {
-    db.deleteIdea(id)
-    setIdeas(db.getIdeas())
+  // 想做的事：长按呼出编辑/删除菜单（去除独立删除按钮，省 UI）
+  function openIdeaMenu(it) {
+    setMenuIdea(it)
+    setEditText(it.text)
+  }
+  function saveIdeaEdit() {
+    if (menuIdea) {
+      db.editIdea(menuIdea.id, editText)
+      setIdeas(db.getIdeas())
+    }
+    setMenuIdea(null)
+    setEditText('')
+  }
+  function deleteIdeaMenu() {
+    if (menuIdea) {
+      db.deleteIdea(menuIdea.id)
+      setIdeas(db.getIdeas())
+    }
+    setMenuIdea(null)
+    setEditText('')
+  }
+  function onIdeaDown(e, it) {
+    if (menuIdea) return
+    e.preventDefault()
+    ideaPress.current = { id: it.id, it, startX: e.clientX, startY: e.clientY, fired: false }
+    ideaPress.current.timer = setTimeout(() => {
+      const p = ideaPress.current
+      if (p && !p.fired) {
+        p.fired = true
+        openIdeaMenu(it)
+        try {
+          navigator.vibrate && navigator.vibrate(15)
+        } catch {
+          /* 不支持震动忽略 */
+        }
+      }
+    }, LONG_PRESS_MS)
+  }
+  function onIdeaMove(e) {
+    const p = ideaPress.current
+    if (!p || p.fired) return
+    if (Math.abs(e.clientX - p.startX) > MOVE_CANCEL || Math.abs(e.clientY - p.startY) > MOVE_CANCEL) {
+      clearTimeout(p.timer)
+      ideaPress.current = null
+    }
+  }
+  function onIdeaUp() {
+    const p = ideaPress.current
+    if (p) {
+      clearTimeout(p.timer)
+      ideaPress.current = null
+    }
   }
 
   function startEdit(t) {
@@ -331,51 +381,46 @@ function Tasks({ date, onNav }) {
 
   return (
     <div className="page tasks-page">
-      {/* 想做的事（灵感池）：随手记临时想法，不绑定记录日 */}
+      {/* 想做的事（灵感池）：随手记临时想法，不绑定记录日；1.1.10 常驻展开、行内 chip、长按编辑/删除 */}
       <div className="card idea-card">
         <div className="card-title">
           想做的事
           <span className="idea-head-right">
             <span className="idea-count">{ideas.length} 条</span>
-            <button className="checkin-link" onClick={() => setIdeaOpen((o) => !o)}>
-              {ideaOpen ? '收起' : '展开'}
-            </button>
           </span>
         </div>
-        {ideaOpen && (
-          <>
-            <div className="idea-add">
-              <input
-                className="idea-input"
-                value={idea}
-                placeholder="临时想法、想做的事…（回车添加）"
-                onChange={(e) => setIdea(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAddIdea()}
-              />
-              <button className="idea-add__btn" onClick={handleAddIdea}>
-                添加
-              </button>
-            </div>
-            <div className="idea-list">
-              {ideas.length === 0 ? (
-                <div className="muted">还没有记录，想到什么随时记一笔。</div>
-              ) : (
-                ideas.map((it) => (
-                  <div className="idea-item" key={it.id}>
-                    <span className="idea-text">{it.text}</span>
-                    <button
-                      className="idea-del"
-                      onClick={() => handleDeleteIdea(it.id)}
-                      aria-label="删除"
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-          </>
-        )}
+        <div className="idea-add">
+          <input
+            className="idea-input"
+            value={idea}
+            placeholder="临时想法、想做的事…（回车添加）"
+            onChange={(e) => setIdea(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleAddIdea()}
+          />
+          <button className="idea-add__btn" onClick={handleAddIdea}>
+            添加
+          </button>
+        </div>
+        <div className="idea-list">
+          {ideas.length === 0 ? (
+            <div className="muted">还没有记录，想到什么随时记一笔。</div>
+          ) : (
+            ideas.map((it) => (
+              <div
+                className="idea-item"
+                key={it.id}
+                role="button"
+                aria-label="长按编辑或删除"
+                onPointerDown={(e) => onIdeaDown(e, it)}
+                onPointerMove={onIdeaMove}
+                onPointerUp={onIdeaUp}
+                onPointerCancel={onIdeaUp}
+              >
+                <span className="idea-text">{it.text}</span>
+              </div>
+            ))
+          )}
+        </div>
       </div>
 
       {/* 今日待办 */}
@@ -594,6 +639,30 @@ function Tasks({ date, onNav }) {
             <button className="primary" onClick={saveMonthReview}>
               保存月度复盘
             </button>
+          </div>
+        </Modal>
+      )}
+
+      {/* 想做的事：长按编辑/删除菜单 */}
+      {menuIdea && (
+        <Modal title="想做的事" onClose={() => { setMenuIdea(null); setEditText('') }}>
+          <div className="review-fields">
+            <input
+              className="idea-edit-input"
+              value={editText}
+              autoFocus
+              placeholder="修改这条想法…"
+              onChange={(e) => setEditText(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') saveIdeaEdit() }}
+            />
+            <div className="idea-menu-actions">
+              <button className="primary" onClick={saveIdeaEdit}>
+                保存
+              </button>
+              <button className="danger" onClick={deleteIdeaMenu}>
+                删除
+              </button>
+            </div>
           </div>
         </Modal>
       )}

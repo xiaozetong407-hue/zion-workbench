@@ -163,12 +163,31 @@ test('update：正常写入 -> 落盘并可读回；副本不污染后续读取'
 test('exportData：包含版本 / 统计 / 完整业务数据', () => {
   db.ensureSeed()
   const exp = JSON.parse(db.exportData())
-  assert.equal(exp.appVersion, '1.1.9')
+  assert.equal(exp.appVersion, '1.1.10')
   assert.equal(exp.schemaVersion, 1)
   assert.ok(exp.exportTime)
   assert.ok(exp.statistics && typeof exp.statistics === 'object')
   assert.ok(exp.data && typeof exp.data === 'object')
   assert.ok('checkIns' in exp.data && 'tasks' in exp.data && 'settings' in exp.data)
+})
+
+test('ideas：add / edit / delete 全链路', () => {
+  db.ensureSeed()
+  db.addIdea('  想去看海  ')
+  const list = db.getIdeas()
+  assert.equal(list.length, 1)
+  assert.equal(list[0].text, '想去看海') // 已 trim
+  const id = list[0].id
+
+  db.editIdea(id, '  改主意了  ')
+  assert.equal(db.getIdeas()[0].text, '改主意了') // 已 trim 覆盖
+
+  // 空值不覆盖
+  db.editIdea(id, '   ')
+  assert.equal(db.getIdeas()[0].text, '改主意了')
+
+  db.deleteIdea(id)
+  assert.equal(db.getIdeas().length, 0)
 })
 
 test('import/export round-trip：数据统计完全一致', () => {

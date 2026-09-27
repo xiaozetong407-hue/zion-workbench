@@ -198,38 +198,39 @@ export default function Ledger({ onNav }) {
           1.1.9：「本月」模式下可点 ‹ › 回看以前的月份，「本月」按钮一键跳回当月 */}
       <div className="card ledger-overview">
         <div className="card-title">
-          概览
-          <div className="period-tabs">
-            <button
-              className={'chip' + (overviewTab === 'month' && overviewMonth === curMonth ? ' active' : '')}
-              onClick={() => { setOverviewTab('month'); setOverviewMonth(curMonth) }}
-            >
-              本月
-            </button>
-            <button className={'chip' + (overviewTab === 'year' ? ' active' : '')} onClick={() => setOverviewTab('year')}>本年</button>
+          <span className="card-title__text">概览</span>
+          <div className="ov-title-right">
+            <div className="period-tabs">
+              <button
+                className={'chip' + (overviewTab === 'month' && overviewMonth === curMonth ? ' active' : '')}
+                onClick={() => { setOverviewTab('month'); setOverviewMonth(curMonth) }}
+              >
+                本月
+              </button>
+              <button className={'chip' + (overviewTab === 'year' ? ' active' : '')} onClick={() => setOverviewTab('year')}>本年</button>
+            </div>
+            {overviewTab === 'month' && (
+              <div className="ov-month ov-month--inline">
+                <button className="ov-month__btn" onClick={() => setOverviewMonth((k) => shiftMonth(k, -1))} aria-label="上个月">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M14.5 5.5L8 12l6.5 6.5" />
+                  </svg>
+                </button>
+                <span className="ov-month__val">{ovYear} 年 {ovMon} 月</span>
+                <button
+                  className="ov-month__btn"
+                  onClick={() => setOverviewMonth((k) => shiftMonth(k, 1))}
+                  disabled={overviewMonth >= curMonth}
+                  aria-label="下个月"
+                >
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M9.5 5.5L16 12l-6.5 6.5" />
+                  </svg>
+                </button>
+              </div>
+            )}
           </div>
         </div>
-
-        {overviewTab === 'month' && (
-          <div className="ov-month">
-            <button className="ov-month__btn" onClick={() => setOverviewMonth((k) => shiftMonth(k, -1))} aria-label="上个月">
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M14.5 5.5L8 12l6.5 6.5" />
-              </svg>
-            </button>
-            <span className="ov-month__val">{ovYear} 年 {ovMon} 月</span>
-            <button
-              className="ov-month__btn"
-              onClick={() => setOverviewMonth((k) => shiftMonth(k, 1))}
-              disabled={overviewMonth >= curMonth}
-              aria-label="下个月"
-            >
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M9.5 5.5L16 12l-6.5 6.5" />
-              </svg>
-            </button>
-          </div>
-        )}
 
         <div className="ledger-sum">
           <div className="sum-item">

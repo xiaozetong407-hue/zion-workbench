@@ -300,7 +300,6 @@ export default function Past({ date }) {
         <button className="past-custom" onClick={genCustom} disabled={genLoading}>
           {genLoading ? '生成中…' : '生成所选区间'}
         </button>
-        <div className="muted">截止日期默认到前一天（今天数据尚未完成）。周报=最近 7 天、月报=最近 30 天，均到昨天为止；也可点上方「报告区间」自选任意区间。</div>
       </div>
 
       <div className="card">
@@ -322,20 +321,12 @@ export default function Past({ date }) {
                     <span className="report-badge__year">{(pt || pf || {}).y || ''}</span>
                   </div>
 
-                  {/* 主体：1.1.8 起改为「大月 + 小日」——月份一眼可见，日期作辅助 */}
+                  {/* 主体：1.1.10 改为方框框起的紧凑区间「9.14-9.20」，月份加粗即可 */}
                   <div className="report-dates">
-                    <span className="report-date">
-                      <i>{pf ? pf.m + '月' : ''}</i>
-                      <b>{pf ? pf.day : '-'}</b>
-                    </span>
-                    <span className="report-dates__link" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M4 12h15M14 7l5 5-5 5" />
-                      </svg>
-                    </span>
-                    <span className="report-date">
-                      <i>{pt ? pt.m + '月' : ''}</i>
-                      <b>{pt ? pt.day : '-'}</b>
+                    <span className="report-range">
+                      <b>{pf ? pf.m : '-'}</b>.{pf ? pf.day : '-'}
+                      <span className="report-range__sep">–</span>
+                      <b>{pt ? pt.m : '-'}</b>.{pt ? pt.day : '-'}
                     </span>
                   </div>
 

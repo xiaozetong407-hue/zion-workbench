@@ -13,7 +13,7 @@ import { validateData, migrateData, deepClone, SCHEMA_VERSION, schemaVersionOf }
 import sync from './sync.js'
 
 // 与 package.json version 保持一致（手工同步）
-const APP_VERSION = '1.1.9'
+const APP_VERSION = '1.1.10'
 // 导入前自动备份的 key（独立于业务 blob，供「恢复上一次备份」）
 const BACKUP_KEY = 'zion-backup-last'
 
@@ -356,6 +356,16 @@ export const db = {
   deleteIdea(id) {
     db.update((d) => {
       d.ideas = (d.ideas || []).filter((x) => x.id !== id)
+    })
+  },
+
+  // 长按编辑：按 id 改文案（空值不覆盖）
+  editIdea(id, text) {
+    const trimmed = (text || '').trim()
+    if (!trimmed) return
+    db.update((d) => {
+      const it = (d.ideas || []).find((x) => x.id === id)
+      if (it) it.text = trimmed
     })
   },
 

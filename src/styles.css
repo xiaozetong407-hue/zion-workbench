@@ -847,40 +847,71 @@ h2 { font-size: 16px; font-weight: 800; }
 .idea-add__btn:active { opacity: 0.9; }
 .idea-list {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  flex-wrap: wrap;
+  gap: 8px;
   max-height: 188px;
   overflow-y: auto;
 }
 .idea-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
   background: #f6f8fc;
   border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 8px 10px;
+  border-radius: 999px;
+  padding: 6px 12px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: pan-y;
+}
+.idea-item:active {
+  background: #eef2f9;
+  border-color: var(--accent);
 }
 .idea-text {
-  flex: 1;
   font-size: 13px;
-  line-height: 1.45;
+  line-height: 1.4;
   color: var(--ink);
   word-break: break-word;
 }
-.idea-del {
-  flex-shrink: 0;
-  width: 20px;
-  height: 20px;
-  border: none;
-  background: transparent;
-  color: var(--muted);
-  font-size: 17px;
-  line-height: 1;
-  cursor: pointer;
-  border-radius: 6px;
+.idea-edit-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  background: #fff;
+  color: var(--ink);
 }
-.idea-del:active { background: #e7eaf2; color: #e0484b; }
+.idea-edit-input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+.idea-menu-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+.idea-menu-actions button {
+  flex: 1;
+  border: none;
+  border-radius: 11px;
+  padding: 10px 0;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.idea-menu-actions .primary {
+  background: var(--accent);
+  color: #fff;
+}
+.idea-menu-actions .danger {
+  background: #fdecec;
+  color: #e0484b;
+}
 .task-main {
   flex: 1;
   min-width: 0;
@@ -1191,14 +1222,6 @@ h2 { font-size: 16px; font-weight: 800; }
   padding: 4px 4px 12px;
   border-top: 1px solid var(--line);
   margin-top: 2px;
-}
-  line-height: 1.55;
-  white-space: pre-wrap;
-  word-break: break-word;
-  background: #fafbff;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 9px 11px;
 }
 
 /* ====== 状态模块 ====== */
@@ -1559,6 +1582,11 @@ h2 { font-size: 16px; font-weight: 800; }
 .period-tabs {
   display: flex;
   gap: 5px;
+}
+.ov-title-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-left: auto;
 }
 .ledger-list {
@@ -1730,6 +1758,7 @@ h2 { font-size: 16px; font-weight: 800; }
 }
 .lh-search::placeholder { color: var(--muted); }
 .lh-groups { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.lh-years { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
 .lh-month {
   border: 1px solid var(--line);
   border-radius: 11px;
@@ -2510,38 +2539,21 @@ h2 { font-size: 16px; font-weight: 800; }
   align-items: center;
   gap: 9px;
 }
-.report-date {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  line-height: 1;
-}
-/* 1.1.8：月份为主体（大号深色，一眼看出哪个月），日期为辅助（小号浅色） */
-.report-date i {
-  font-style: normal;
-  font-size: 20px;
-  font-weight: 800;
+.report-range {
+  display: inline-flex;
+  align-items: baseline;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 4px 9px;
+  background: #fff;
+  font-size: 12px;
   color: var(--ink);
-  letter-spacing: 0;
-  line-height: 1;
-  margin-bottom: 3px;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  letter-spacing: .2px;
 }
-.report-date b {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: .3px;
-}
-.report-dates__link {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #c3cad9;
-  padding-bottom: 12px;
-}
+.report-range b { font-weight: 800; }
+.report-range__sep { margin: 0 3px; color: var(--muted); font-weight: 700; }
 .report-view {
   flex: 0 0 auto;
   border: 1px solid var(--line);
@@ -3481,7 +3493,6 @@ h2 { font-size: 16px; font-weight: 800; }
 .sh-table .sh-table__avg td:first-child { font-size: 12px; }
 
   .manifesto__line { font-size: 15px; }
-}
 
 /* ============ Zion 个人宣言 · 1.0.0 正式版视觉（仅 Zion 栏）============ */
 /* Editorial / Manifesto：统一大关键词 + 小陈述，居中、紧凑，第一屏可见全部 */
@@ -3719,6 +3730,22 @@ h2 { font-size: 16px; font-weight: 800; }
   font-weight: 800;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
+}
+/* 月份选择器内联到概览标题一行 */
+.ov-month--inline {
+  margin: 0;
+  gap: 4px;
+}
+.ov-month--inline .ov-month__btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+}
+.ov-month--inline .ov-month__val {
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 0 2px;
 }
 
 /* 最近记录编辑态：标签下拉（原来只能改金额和日期） */
