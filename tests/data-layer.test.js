@@ -23,6 +23,8 @@ const { validateData, migrateData, deepClone, SCHEMA_VERSION, schemaVersionOf } 
 // 业务层（依赖 localStorage，动态导入；db.js 顶层不再自动 ensureSeed）
 const { db } = await import('../src/store/db.js')
 const { default: sync } = await import('../src/store/sync.js')
+const { autoGenerateReports } = await import('../src/utils/report.js')
+const { addDays, todayStr } = await import('../src/utils/date.js')
 
 const KEY = 'zion-data-v1'
 const BACKUP_KEY = 'zion-backup-last'
@@ -163,7 +165,7 @@ test('update：正常写入 -> 落盘并可读回；副本不污染后续读取'
 test('exportData：包含版本 / 统计 / 完整业务数据', () => {
   db.ensureSeed()
   const exp = JSON.parse(db.exportData())
-  assert.equal(exp.appVersion, '1.1.10')
+  assert.equal(exp.appVersion, '1.1.11')
   assert.equal(exp.schemaVersion, 1)
   assert.ok(exp.exportTime)
   assert.ok(exp.statistics && typeof exp.statistics === 'object')
@@ -230,6 +232,43 @@ test('importData：损坏 JSON -> 抛错且原数据保留', () => {
   const before = localStorage.getItem(KEY)
   assert.throws(() => db.importData('{bad json'))
   assert.equal(localStorage.getItem(KEY), before)
+})
+
+// ---------- 1.1.11 自动生成周报/月报 ----------
+test('autoGenerateReports：门禁满足时生成周报且去重幂等', async () => {
+  db.ensureSeed()
+  const today = todayStr()
+  const t = new Date(today + 'T00:00:00')
+  const dow = t.getDay() // 0=周日
+  const daysSinceSunday = dow === 0 ? 7 : dow
+  const sunday = addDays(today, -daysSinceSunday)
+  // 该周日：日复盘 4 字段齐全 + 状态已保存 -> 满足门禁
+  db.setReview(sunday, { closer: '推进了A', pleasure: '及时快乐', gameMinutes: 30, tomorrow: '明天做B' })
+  db.setStatus(sunday, { sleepHours: 7, steps: 8000, calories: 1800, exerciseMin: 30 })
+
+  await autoGenerateReports()
+  const weekPeriod = `${addDays(sunday, -6)} ~ ${sunday}`
+  const weeklies = db.getPastReports().filter((r) => r.kind === 'week' && r.period === weekPeriod)
+  assert.equal(weeklies.length, 1)
+
+  // 再跑一次：仍为 1（去重幂等，不重复生成）
+  await autoGenerateReports()
+  assert.equal(db.getPastReports().filter((r) => r.kind === 'week' && r.period === weekPeriod).length, 1)
+})
+
+test('autoGenerateReports：门禁不满足时不生成周报', async () => {
+  db.ensureSeed()
+  const today = todayStr()
+  const t = new Date(today + 'T00:00:00')
+  const dow = t.getDay()
+  const daysSinceSunday = dow === 0 ? 7 : dow
+  const sunday = addDays(today, -daysSinceSunday)
+  // 只有状态、没有日复盘 -> 不满足门禁
+  db.setStatus(sunday, { sleepHours: 7, steps: 8000, calories: 1800, exerciseMin: 30 })
+
+  await autoGenerateReports()
+  const weekPeriod = `${addDays(sunday, -6)} ~ ${sunday}`
+  assert.equal(db.getPastReports().filter((r) => r.kind === 'week' && r.period === weekPeriod).length, 0)
 })
 
 test('importData：非法结构（校验失败）-> 抛错且原数据保留', () => {

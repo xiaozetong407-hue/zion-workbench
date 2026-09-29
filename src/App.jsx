@@ -16,6 +16,7 @@ import Me from './components/Me.jsx'
 import LedgerHistory from './components/LedgerHistory.jsx'
 import Placeholder from './components/Placeholder.jsx'
 import SyncBar from './components/SyncBar.jsx'
+import { autoGenerateReports } from './utils/report.js'
 
 // 全部模块（常驻侧栏入口）："zion"置顶（品牌），其余已完成 + 已建设
 const MODULES = [
@@ -115,6 +116,11 @@ export default function App() {
   // 启动：先处理微软授权回跳（URL 带 code 时换 token），再启动本地同步
   useEffect(() => {
     sync.handleAuth().then(() => db.startSync())
+  }, [])
+
+  // 1.1.11：启动后补生成错过的周报/月报（门禁：当天日复盘+状态均已保存；按区间去重幂等）
+  useEffect(() => {
+    autoGenerateReports().catch(() => {})
   }, [])
 
   // 切换页面并持久化当前页，刷新后停留在原页面（不再强制回首页）

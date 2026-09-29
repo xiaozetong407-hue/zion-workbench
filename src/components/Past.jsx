@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { db } from '../store/db.js'
 import { useLive } from '../store/useLive.js'
 import { addDays, todayStr } from '../utils/date.js'
+import { buildReport } from '../utils/report.js'
 import DateRangePicker from './DateRangePicker.jsx'
 
 // 「YYYY-MM-DD」-> 拆分展示所需片段（报告列表用）
@@ -29,97 +30,6 @@ function kindMeta(r) {
 function cnDate(dateStr) {
   const p = parts(dateStr)
   return p ? `${p.m}月${p.d}日` : ''
-}
-
-// 枚举 [from, to] 闭区间内的所有日期（含两端，安全上限 400 天）
-function enumerateDates(from, to) {
-  const out = []
-  let d = from
-  for (let i = 0; i < 400; i++) {
-    out.push(d)
-    if (d >= to) break
-    d = addDays(d, 1)
-  }
-  return out
-}
-
-async function buildReport(kind, from, to) {
-  const dates = enumerateDates(from, to)
-  const n = dates.length
-  const datesSet = new Set(dates)
-
-  const checkIns = db.getAllCheckIns()
-  const tasksAll = db.getAllTasks()
-  const reviews = db.get().reviews || {}
-  const statusAll = db.getAllStatus()
-  const ledger = db.getLedger()
-
-  // 打卡完成率
-  const ciDates = dates.filter((d) => checkIns[d])
-  const totalItems = db.CHECKIN_ITEMS.length
-  const ciDone = ciDates.reduce(
-    (s, d) => s + db.CHECKIN_ITEMS.filter((it) => checkIns[d][it.key]).length,
-    0,
-  )
-  const ciTotal = ciDates.length * totalItems
-  const ciRate = ciTotal ? Math.round((ciDone / ciTotal) * 100) : 0
-
-  // 各项完成天数（具体 6 项分别统计）
-  const ciItems = db.CHECKIN_ITEMS.map((it) => ({
-    key: it.key,
-    label: it.label,
-    done: dates.filter((d) => checkIns[d] && checkIns[d][it.key]).length,
-  }))
-
-  // 每日打卡明细（6 项逐日）
-  const dailyCI = dates.map((d) => {
-    const ci = checkIns[d] || {}
-    return {
-      date: d,
-      items: db.CHECKIN_ITEMS.map((it) => ({ key: it.key, short: it.short, done: !!ci[it.key] })),
-    }
-  })
-
-  // 任务完成率
-  const tasks = tasksAll.filter((t) => datesSet.has(t.date))
-  const tDone = tasks.filter((t) => t.done).length
-  const tTotal = tasks.length
-  const tRate = tTotal ? Math.round((tDone / tTotal) * 100) : 0
-
-  // 睡眠 / 步数 / 卡路里平均
-  const st = dates.map((d) => statusAll[d]).filter(Boolean)
-  const avgSleep = st.length ? (st.reduce((s, x) => s + Number(x.sleepHours || 0), 0) / st.length).toFixed(1) : '—'
-  const avgSteps = st.length ? Math.round(st.reduce((s, x) => s + Number(x.steps || 0), 0) / st.length) : '—'
-  const avgCal = st.length ? Math.round(st.reduce((s, x) => s + Number(x.calories || 0), 0) / st.length) : '—'
-
-  // 账本
-  const led = ledger.filter((l) => datesSet.has(l.date))
-  const exp = led.filter((l) => l.type === 'exp').reduce((s, l) => s + l.amount, 0)
-  const inc = led.filter((l) => l.type === 'inc').reduce((s, l) => s + l.amount, 0)
-  const balance = inc - exp
-
-  // 复盘（仅累计游戏时长入统计，不展示复盘天数）
-  const revDates = dates.filter((d) => reviews[d])
-  const topThings = revDates.map((d) => reviews[d].tomorrow).filter(Boolean)
-  const gameMin = revDates.reduce((s, d) => s + Number(reviews[d].gameMinutes || 0), 0)
-
-  return {
-    kind,
-    title: kind === 'week' ? '周报' : kind === 'month' ? '月报' : '自定义报告',
-    period: `${from} ~ ${to}`,
-    createdAt: Date.now(),
-    metrics: {
-      ciRate, ciDone, ciTotal,
-      ciItems,
-      tRate, tDone, tTotal,
-      avgSleep, avgSteps, avgCal,
-      exp, inc, balance,
-      gameMin,
-      days: n,
-    },
-    dailyCI,
-    highlights: topThings.slice(0, 3),
-  }
 }
 
 // 环形进度（纯 SVG，描边风格）

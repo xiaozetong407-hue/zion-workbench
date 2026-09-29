@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { db } from '../store/db.js'
 import { addDays, mmdd } from '../utils/date.js'
+import { autoGenerateReports } from '../utils/report.js'
 import StatusHistory from './StatusHistory.jsx'
 
 const BMI_CATS = [
@@ -114,6 +115,8 @@ export default function Status({ date }) {
     const next = addDays(day, 1)
     setDay(next)
     db.setRecordDay('status', next)
+    // 1.1.11：状态保存并进入下一天后，尝试自动生成周报/月报（门禁：当天日复盘+状态均已保存）
+    autoGenerateReports()
     setSaved(true)
     if (savedTimer.current) clearTimeout(savedTimer.current)
     savedTimer.current = setTimeout(() => setSaved(false), 1800)

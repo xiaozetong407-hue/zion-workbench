@@ -200,15 +200,6 @@ export default function Ledger({ onNav }) {
         <div className="card-title">
           <span className="card-title__text">概览</span>
           <div className="ov-title-right">
-            <div className="period-tabs">
-              <button
-                className={'chip' + (overviewTab === 'month' && overviewMonth === curMonth ? ' active' : '')}
-                onClick={() => { setOverviewTab('month'); setOverviewMonth(curMonth) }}
-              >
-                本月
-              </button>
-              <button className={'chip' + (overviewTab === 'year' ? ' active' : '')} onClick={() => setOverviewTab('year')}>本年</button>
-            </div>
             {overviewTab === 'month' && (
               <div className="ov-month ov-month--inline">
                 <button className="ov-month__btn" onClick={() => setOverviewMonth((k) => shiftMonth(k, -1))} aria-label="上个月">
@@ -229,6 +220,15 @@ export default function Ledger({ onNav }) {
                 </button>
               </div>
             )}
+            <div className="period-tabs">
+              <button
+                className={'chip' + (overviewTab === 'month' && overviewMonth === curMonth ? ' active' : '')}
+                onClick={() => { setOverviewTab('month'); setOverviewMonth(curMonth) }}
+              >
+                本月
+              </button>
+              <button className={'chip' + (overviewTab === 'year' ? ' active' : '')} onClick={() => setOverviewTab('year')}>本年</button>
+            </div>
           </div>
         </div>
 

@@ -2543,17 +2543,17 @@ h2 { font-size: 16px; font-weight: 800; }
   display: inline-flex;
   align-items: baseline;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 4px 9px;
+  border-radius: 10px;
+  padding: 7px 13px;
   background: #fff;
-  font-size: 12px;
+  font-size: 15px;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   letter-spacing: .2px;
 }
-.report-range b { font-weight: 800; }
-.report-range__sep { margin: 0 3px; color: var(--muted); font-weight: 700; }
+.report-range b { font-weight: 800; font-size: 15px; }
+.report-range__sep { margin: 0 4px; color: var(--muted); font-weight: 700; }
 .report-view {
   flex: 0 0 auto;
   border: 1px solid var(--line);

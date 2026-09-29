@@ -230,14 +230,40 @@ function PlanRow({ title, text, open, onToggle, anchor }) {
 // 周复盘单行：默认收起（标题 + a 段一行预览），展开后 a / b / c 三段「分行 + 小标题」展示
 // 1.1.9：收起态预览原来是把三段用「·」拼成一行，难读；改为只显示 a 段。
 //        展开态则三段各占一行、各带标签，彻底不用「·」做分隔。
-function WeeklyRow({ item, open, onToggle, anchor }) {
+// 1.1.11：长按进入编辑（与每日复盘一致），onEdit 透传编辑项。
+function WeeklyRow({ item, open, onToggle, onEdit, anchor }) {
   const w = item.w || {}
   const first = w.advanced || w.issue || w.next || ''
   const raw = String(first).replace(/\s+/g, ' ').trim()
   const preview = raw.length > 50 ? raw.slice(0, 50) + '…' : raw
+  const pressTimer = useRef(null)
+  const longFired = useRef(false)
+  function onDown() {
+    longFired.current = false
+    if (pressTimer.current) clearTimeout(pressTimer.current)
+    pressTimer.current = setTimeout(() => {
+      longFired.current = true
+      onEdit(item)
+    }, 500)
+  }
+  function onUp() {
+    if (pressTimer.current) clearTimeout(pressTimer.current)
+  }
+  function handleClick() {
+    if (longFired.current) { longFired.current = false; return }
+    onToggle()
+  }
   return (
     <div className={'retro-row retro-row--plan' + (open ? ' is-open' : '')} data-anchor={anchor}>
-      <button className="retro-row__head" onClick={onToggle}>
+      <button
+        className="retro-row__head"
+        onClick={handleClick}
+        onTouchStart={onDown}
+        onTouchEnd={onUp}
+        onMouseDown={onDown}
+        onMouseUp={onUp}
+        onMouseLeave={onUp}
+      >
         <div className="retro-row__main">
           <div className="retro-row__title">{item.title}</div>
           {!open && (
@@ -327,6 +353,7 @@ export default function Retrospect({ onBack, focusWeek }) {
   const [expanded, setExpanded] = useState({})
   const [q, setQ] = useState('')
   const [editItem, setEditItem] = useState(null)
+  const [editWeekly, setEditWeekly] = useState(null)
 
   // 年 / 月 / 计划 收起状态：默认展开「当年 / 当月」，其余收起，避免篇幅过长
   const now = new Date()
@@ -420,6 +447,12 @@ export default function Retrospect({ onBack, focusWeek }) {
     if (!editItem) return
     db.setReview(editItem.key, editItem.o)
     setEditItem(null)
+  }
+
+  function saveEditWeekly() {
+    if (!editWeekly) return
+    db.setReview(editWeekly.key, { weekly: editWeekly.w })
+    setEditWeekly(null)
   }
 
   return (
@@ -562,6 +595,7 @@ export default function Retrospect({ onBack, focusWeek }) {
                                     item={it}
                                     open={!!openPlans[it.pk]}
                                     onToggle={() => togglePlan(it.pk)}
+                                    onEdit={setEditWeekly}
                                     anchor={it.pk}
                                   />
                                 ))}
@@ -625,6 +659,36 @@ export default function Retrospect({ onBack, focusWeek }) {
               />
             </label>
             <button className="primary" onClick={saveEdit}>保存修改</button>
+          </div>
+        </Modal>
+      )}
+
+      {/* 长按周复盘 -> 编辑弹窗（a / b / c 三段） */}
+      {editWeekly && (
+        <Modal title={`编辑周复盘 · ${editWeekly.title}`} onClose={() => setEditWeekly(null)}>
+          <div className="review-fields">
+            <label className="field">
+              <span>a. 本周推进了什么内容？</span>
+              <textarea
+                value={editWeekly.w.advanced || ''}
+                onChange={(e) => setEditWeekly((p) => ({ ...p, w: { ...p.w, advanced: e.target.value } }))}
+              />
+            </label>
+            <label className="field">
+              <span>b. 有什么事没有做好 / 被什么事分心比较多？为什么，如何改进？</span>
+              <textarea
+                value={editWeekly.w.issue || ''}
+                onChange={(e) => setEditWeekly((p) => ({ ...p, w: { ...p.w, issue: e.target.value } }))}
+              />
+            </label>
+            <label className="field">
+              <span>c. 下周重推进什么事？</span>
+              <textarea
+                value={editWeekly.w.next || ''}
+                onChange={(e) => setEditWeekly((p) => ({ ...p, w: { ...p.w, next: e.target.value } }))}
+              />
+            </label>
+            <button className="primary" onClick={saveEditWeekly}>保存修改</button>
           </div>
         </Modal>
       )}

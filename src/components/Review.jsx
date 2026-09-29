@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { db } from '../store/db.js'
 import { useLive } from '../store/useLive.js'
 import { addDays, formatDateCN, mmdd, yearKey, isLastDayOfYear, getWeekCN } from '../utils/date.js'
+import { autoGenerateReports } from '../utils/report.js'
 import Modal from './Modal.jsx'
 
 // 未保存草稿持久化：切出复盘栏再切回，已填未保存的数据仍在（日复盘）
@@ -171,6 +172,8 @@ export default function Review({ date, onNav }) {
     const next = addDays(day, 1)
     setDay(next)
     db.setRecordDay('review', next)
+    // 1.1.11：日复盘保存并进入下一天后，尝试自动生成周报/月报（门禁：当天日复盘+状态均已保存）
+    autoGenerateReports()
   }
 
   // 周复盘卡片可见性：周日恒显示当周；周一~周六在上周日周复盘未保存时显示补写卡；
